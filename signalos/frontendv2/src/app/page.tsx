@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import AlertPopup from "../components/AlertPopup";
-import BottomNav from "../components/BottomNav";
+import BottomNav, { type BottomTab } from "../components/BottomNav";
+import DispatchList from "../components/DispatchList";
 import Sidebar from "../components/Sidebar";
 
 // Opt-out of SSR for the Google Map so we don't hit "window is not defined"
@@ -11,12 +13,22 @@ const MapBackground = dynamic(() => import("../components/GoogleMapBackground"),
 });
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<BottomTab>("calls");
+
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-black font-sans antialiased text-white selection:bg-red-500/30">
       <MapBackground />
-      <Sidebar />
-      <AlertPopup />
-      <BottomNav />
+
+      {activeTab === "calls" && (
+        <>
+          <Sidebar />
+          <AlertPopup />
+        </>
+      )}
+
+      {activeTab === "dispatch" && <DispatchList />}
+
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </main>
   );
 }
