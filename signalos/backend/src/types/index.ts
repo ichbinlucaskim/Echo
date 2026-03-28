@@ -27,7 +27,13 @@ export interface AlertPayload {
   timestamp: Date;
 }
 
+export interface AudioChunkPayload {
+  callId: string;
+  mimeType: string;
+  data: string; // base64-encoded PCM
+}
+
 export interface BroadcastMessage {
-  type: "STATE_UPDATE" | "ALERT";
-  payload: CallState | AlertPayload;
+  type: "STATE_UPDATE" | "ALERT" | "AUDIO_CHUNK";
+  payload: CallState | AlertPayload | AudioChunkPayload;
 }

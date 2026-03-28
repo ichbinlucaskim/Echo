@@ -110,6 +110,18 @@ httpServer.on(
 // ─── Gemini response handler ──────────────────────────────────────────────────
 
 function onGeminiResponse(callId: string, response: GeminiResponse): void {
+  if (response.type === "audio") {
+    broadcast({
+      type: "AUDIO_CHUNK",
+      payload: {
+        callId,
+        mimeType: response.mimeType,
+        data: response.data,
+      },
+    });
+    return;
+  }
+
   if (response.type === "text") {
     console.log(`[Gemini→State] Text for callId: ${callId} — "${response.text}"`);
     const updated = appendTranscript(callId, response.text);

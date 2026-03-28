@@ -1,11 +1,21 @@
-export type CallStatus = "ACTIVE" | "ON-HOLD" | "ALERT";
+export type CallStatus = "ACTIVE" | "ON-HOLD" | "ALERT" | "ROUTED";
 export type AnomalyType = "WHISPER" | "STROKE" | "DISTRESS_SOUND";
+export type CallCategory =
+  | "MONITORING"
+  | "NON_EMERGENCY"
+  | "MEDICAL"
+  | "TRAFFIC"
+  | "FIRE_HAZARD"
+  | "CRIME"
+  | "SILENT_DISTRESS";
 
 export interface CallState {
   callId: string;
   status: CallStatus;
   transcript: string;
   startedAt: Date;
+  category: CallCategory;
+  categorySummary: string;
 }
 
 export interface AlertPayload {
@@ -17,7 +27,13 @@ export interface AlertPayload {
   timestamp: Date;
 }
 
+export interface AudioChunkPayload {
+  callId: string;
+  mimeType: string;
+  data: string; // base64-encoded PCM
+}
+
 export interface BroadcastMessage {
-  type: "STATE_UPDATE" | "ALERT";
-  payload: CallState | AlertPayload;
+  type: "STATE_UPDATE" | "ALERT" | "AUDIO_CHUNK";
+  payload: CallState | AlertPayload | AudioChunkPayload;
 }

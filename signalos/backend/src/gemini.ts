@@ -146,7 +146,14 @@ interface GeminiFunctionCallPart {
   };
 }
 
-type GeminiPart = GeminiTextPart | GeminiFunctionCallPart;
+interface GeminiInlineDataPart {
+  inlineData: {
+    mimeType: string;
+    data: string; // base64-encoded PCM audio
+  };
+}
+
+type GeminiPart = GeminiTextPart | GeminiFunctionCallPart | GeminiInlineDataPart;
 
 interface GeminiServerMessage {
   serverContent?: {
@@ -170,7 +177,13 @@ export interface GeminiFunctionCallResponse {
   args: Record<string, unknown>;
 }
 
-export type GeminiResponse = GeminiTextResponse | GeminiFunctionCallResponse;
+export interface GeminiAudioResponse {
+  type: "audio";
+  mimeType: string;
+  data: string; // base64-encoded PCM
+}
+
+export type GeminiResponse = GeminiTextResponse | GeminiFunctionCallResponse | GeminiAudioResponse;
 
 // ─── Low-level session (one per callId) ──────────────────────────────────────
 
@@ -210,7 +223,7 @@ class GeminiLiveSession {
               },
             ],
             generationConfig: {
-              responseModalities: ["AUDIO"],
+              responseModalities: ["AUDIO", "TEXT"],
             },
             inputAudioTranscription: {},
             outputAudioTranscription: {},
@@ -259,6 +272,12 @@ class GeminiLiveSession {
               type: "functionCall",
               name: part.functionCall.name,
               args: part.functionCall.args,
+            });
+          } else if ("inlineData" in part) {
+            this.onResponse({
+              type: "audio",
+              mimeType: part.inlineData.mimeType,
+              data: part.inlineData.data,
             });
           }
         }
