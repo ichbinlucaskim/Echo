@@ -39,6 +39,15 @@ const VALID_ANOMALY_TYPES: ReadonlySet<string> = new Set([
   "DISTRESS_SOUND",
 ]);
 
+const CALLER_NAMES: Record<string, string> = {
+  sim_call_1: "Monica Schmidt",
+  sim_call_2: "James Anderson",
+  sim_call_3: "Sofia Patel",
+  sim_call_4: "Carlos Rodriguez",
+  sim_call_5: "Emma Johnson",
+};
+const DEFAULT_CALLER_NAME = "Liam Thompson";
+
 const VALID_CATEGORIES: ReadonlySet<string> = new Set([
   "NON_EMERGENCY",
   "MEDICAL",
@@ -353,7 +362,8 @@ twilioWss.on("connection", (ws: WebSocket) => {
         );
         const initialState = createSession(callId);
         broadcast({ type: "STATE_UPDATE", payload: initialState });
-        openGeminiSession(callId, onGeminiResponse).catch((err: Error) => {
+        const callerName = CALLER_NAMES[callId] ?? DEFAULT_CALLER_NAME;
+        openGeminiSession(callId, callerName, onGeminiResponse).catch((err: Error) => {
           console.error(
             `[Gemini] Failed to open session for callId: ${callId} — ${err.message}`
           );

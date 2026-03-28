@@ -207,28 +207,32 @@ class GeminiLiveSession {
   private ws: WebSocket | null = null;
   private readonly apiKey: string;
   private readonly onResponse: (response: GeminiResponse) => void;
+  private readonly callerName: string;
   private setupComplete = false;
 
   constructor(
     apiKey: string,
+    callerName: string,
     onResponse: (response: GeminiResponse) => void
   ) {
     this.apiKey = apiKey;
+    this.callerName = callerName;
     this.onResponse = onResponse;
   }
 
   open(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const url = `${GEMINI_LIVE_WS_URL}?key=${this.apiKey}`;
-      console.log(`[Gemini] Connecting — model: ${GEMINI_MODEL}`);
+      console.log(`[Gemini] Connecting — model: ${GEMINI_MODEL} | caller: ${this.callerName}`);
       this.ws = new WebSocket(url);
 
       this.ws.on("open", () => {
+        const prompt = SYSTEM_PROMPT.replace("{{CALLER_NAME}}", this.callerName);
         const setup: GeminiSetupMessage = {
           setup: {
             model: GEMINI_MODEL,
             systemInstruction: {
-              parts: [{ text: SYSTEM_PROMPT }],
+              parts: [{ text: prompt }],
             },
             tools: [
               {
@@ -372,6 +376,7 @@ const activeSessions = new Map<string, GeminiLiveSession>();
 
 export async function openGeminiSession(
   callId: string,
+  callerName: string,
   onResponse: (callId: string, response: GeminiResponse) => void
 ): Promise<void> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -384,7 +389,7 @@ export async function openGeminiSession(
     return;
   }
 
-  const session = new GeminiLiveSession(apiKey, (response) => {
+  const session = new GeminiLiveSession(apiKey, callerName, (response) => {
     onResponse(callId, response);
   });
 
