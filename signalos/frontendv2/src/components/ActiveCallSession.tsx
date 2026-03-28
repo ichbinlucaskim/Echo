@@ -167,42 +167,43 @@ export default function ActiveCallSession() {
         Active call — {name}
       </h2>
 
-      {/* Top: close + alert bar */}
+      {/* Top: alert + close on one row (aligned with X — not stacked under it) */}
       <header className="shrink-0 px-5 pt-5 pb-4 md:px-8 md:pt-6">
-        <div className="flex justify-end mb-4">
+        <div
+          className={`flex w-full gap-3 ${showAlertBar ? "items-start" : "justify-end"}`}
+        >
+          {showAlertBar && (
+            <div
+              className={`min-w-0 flex-1 ${cardRadius} border px-4 py-3.5 md:px-5 md:py-4 flex items-start gap-3`}
+              style={{
+                borderColor: "rgba(139, 0, 0, 0.55)",
+                backgroundColor: "rgba(60, 10, 10, 0.35)",
+              }}
+            >
+              <span
+                className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full animate-pulse"
+                style={{ backgroundColor: C.alertRed }}
+              />
+              <p className="min-w-0 text-[15px] md:text-base leading-relaxed">
+                <span className="font-bold" style={{ color: C.alertRed }}>
+                  Alert
+                </span>
+                <span className="text-white font-normal">
+                  {" "}
+                  {name} needs attention. (Category: {categoryLabel})
+                </span>
+              </p>
+            </div>
+          )}
           <button
             type="button"
             onClick={goBack}
-            className="rounded-[12px] p-2 text-white/50 hover:bg-white/[0.06] hover:text-white transition-colors"
+            className="shrink-0 rounded-[12px] p-2 text-white/50 hover:bg-white/[0.06] hover:text-white transition-colors"
             aria-label="Close call view"
           >
             <X className="w-5 h-5 stroke-[2.5]" />
           </button>
         </div>
-
-        {showAlertBar && (
-          <div
-            className={`${cardRadius} border px-4 py-3.5 md:px-5 md:py-4 flex items-start gap-3`}
-            style={{
-              borderColor: "rgba(139, 0, 0, 0.55)",
-              backgroundColor: "rgba(60, 10, 10, 0.35)",
-            }}
-          >
-            <span
-              className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full animate-pulse"
-              style={{ backgroundColor: C.alertRed }}
-            />
-            <p className="text-[15px] md:text-base leading-relaxed">
-              <span className="font-bold" style={{ color: C.alertRed }}>
-                Alert
-              </span>
-              <span className="text-white font-normal">
-                {" "}
-                {name} needs attention. (Category: {categoryLabel})
-              </span>
-            </p>
-          </div>
-        )}
       </header>
 
       {/* Main: dispatch | waveform | stress+transcript */}
