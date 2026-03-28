@@ -1,3 +1,4 @@
+/// <reference path="../types/mulaw.d.ts" />
 import { mulaw } from "alawmulaw";
 
 // Converts a Twilio Media Stream audio chunk (base64-encoded μ-law 8kHz)

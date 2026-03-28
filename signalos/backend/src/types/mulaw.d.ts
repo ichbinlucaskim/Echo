@@ -1,9 +1,8 @@
 declare module "alawmulaw" {
-  interface Codec {
+  export interface Codec {
     decode(samples: Uint8Array | number[]): number[];
     encode(samples: number[]): number[];
   }
-  const alaw: Codec;
-  const mulaw: Codec;
-  export { alaw, mulaw };
+  export const alaw: Codec;
+  export const mulaw: Codec;
 }
