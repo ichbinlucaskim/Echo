@@ -6,14 +6,14 @@ import CallGrid from "../components/CallGrid";
 import AlertBanner from "../components/AlertBanner";
 import IncidentReport from "../components/IncidentReport";
 
+/** Clock only updates after mount — avoids SSR/client time mismatch (React #418/#423/#425). */
 function useClock(): string {
-  const [time, setTime] = useState(() => new Date().toLocaleTimeString());
+  const [time, setTime] = useState("");
 
   useEffect(() => {
-    const timer = setInterval(
-      () => setTime(new Date().toLocaleTimeString()),
-      1000
-    );
+    const tick = (): void => setTime(new Date().toLocaleTimeString());
+    tick();
+    const timer = setInterval(tick, 1000);
     return (): void => clearInterval(timer);
   }, []);
 
@@ -65,7 +65,7 @@ export default function Home(): React.JSX.Element {
 
         {/* Live clock */}
         <span className="text-gray-400 font-mono text-sm tabular-nums">
-          {clock}
+          {clock || "—"}
         </span>
       </div>
 
