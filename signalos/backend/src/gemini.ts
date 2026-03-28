@@ -168,6 +168,13 @@ interface GeminiServerMessage {
     };
     turnComplete?: boolean;
   };
+  toolCall?: {
+    functionCalls: Array<{
+      name: string;
+      args: Record<string, unknown>;
+      id: string;
+    }>;
+  };
 }
 
 // ─── Parsed response passed to callers ───────────────────────────────────────
@@ -289,6 +296,17 @@ class GeminiLiveSession {
         const outputText = msg.serverContent?.outputTranscription?.text;
         if (outputText?.trim()) {
           this.onResponse({ type: "transcription", source: "output", text: outputText });
+        }
+
+        // Handle top-level toolCall responses (Gemini Live API format)
+        if (msg.toolCall?.functionCalls) {
+          for (const fc of msg.toolCall.functionCalls) {
+            this.onResponse({
+              type: "functionCall",
+              name: fc.name,
+              args: fc.args,
+            });
+          }
         }
 
         const parts = msg.serverContent?.modelTurn?.parts ?? [];
