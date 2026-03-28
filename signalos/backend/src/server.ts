@@ -1,5 +1,5 @@
 import http from "http";
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer, WebSocket, RawData } from "ws";
 import { IncomingMessage } from "http";
 import dotenv from "dotenv";
 import { addDashboardClient, getDashboardClientCount, broadcast } from "./broadcaster";
@@ -124,7 +124,7 @@ twilioWss.on("connection", (ws: WebSocket) => {
 
   console.log("[Twilio] New connection established");
 
-  ws.on("message", (raw: WebSocket.RawData) => {
+  ws.on("message", (raw: RawData) => {
     let message: TwilioMessage;
 
     try {
