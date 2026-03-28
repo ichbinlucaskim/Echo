@@ -76,7 +76,7 @@ export default function Home(): React.JSX.Element {
       <div className="flex flex-1 gap-4 p-4 min-h-0">
         {/* Call grid */}
         <div className="flex-1">
-          <CallGrid calls={calls} />
+          <CallGrid calls={calls} connected={connected} />
         </div>
 
         {/* Incident report panel */}

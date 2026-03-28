@@ -5,6 +5,8 @@ import { CallState, CallStatus } from "../types";
 
 interface CallGridProps {
   calls: Record<string, CallState>;
+  /** From dashboard WebSocket — drives empty-state copy */
+  connected: boolean;
 }
 
 const STATUS_STYLES: Record<CallStatus, string> = {
@@ -34,7 +36,10 @@ function truncateTranscript(transcript: string): string {
   return `…${transcript.slice(-100)}`;
 }
 
-export default function CallGrid({ calls }: CallGridProps): React.JSX.Element {
+export default function CallGrid({
+  calls,
+  connected,
+}: CallGridProps): React.JSX.Element {
   const [, setTick] = useState(0);
 
   // Re-render every second to update elapsed time
@@ -47,14 +52,43 @@ export default function CallGrid({ calls }: CallGridProps): React.JSX.Element {
 
   if (callList.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-gray-600 text-sm font-mono">
-        Monitoring active — no calls on hold
+      <div className="flex flex-col items-center justify-center h-48 px-4 text-center font-mono text-sm">
+        {!connected ? (
+          <>
+            <p className="text-amber-500 font-semibold mb-1">
+              Not connected to backend
+            </p>
+            <p className="text-gray-500 text-xs max-w-md">
+              Retrying every few seconds. Check{" "}
+              <code className="text-gray-400">NEXT_PUBLIC_BACKEND_WS_URL</code>{" "}
+              on Vercel and redeploy. Console:{" "}
+              <code className="text-gray-400">[SignalOS]</code> logs.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-green-500/90 font-semibold mb-1">
+              Live — monitoring for calls
+            </p>
+            <p className="text-gray-500 text-xs max-w-md">
+              No active streams yet. When someone dials your Twilio number, a
+              card appears here. Watch the browser console for{" "}
+              <code className="text-gray-400">[SignalOS] STATE_UPDATE</code>{" "}
+              when Twilio sends audio.
+            </p>
+          </>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="space-y-3">
+      <p className="text-green-500/90 text-xs font-mono font-semibold uppercase tracking-wide">
+        {callList.length} call{callList.length === 1 ? "" : "s"} active — audio
+        streaming to SignalOS
+      </p>
+      <div className="grid grid-cols-3 gap-4">
       {callList.map((call) => (
         <div
           key={call.callId}
@@ -94,6 +128,7 @@ export default function CallGrid({ calls }: CallGridProps): React.JSX.Element {
           </div>
         </div>
       ))}
+      </div>
     </div>
   );
 }

@@ -3,7 +3,13 @@ import { WebSocketServer, WebSocket, RawData } from "ws";
 import { IncomingMessage } from "http";
 import dotenv from "dotenv";
 import { addDashboardClient, getDashboardClientCount, broadcast } from "./broadcaster";
-import { createSession, deleteSession, appendTranscript, markAlert } from "./stateManager";
+import {
+  createSession,
+  deleteSession,
+  appendTranscript,
+  markAlert,
+  getAllSessions,
+} from "./stateManager";
 import {
   openGeminiSession,
   sendAudioToGemini,
@@ -220,7 +226,8 @@ twilioWss.on("connection", (ws: WebSocket) => {
         console.log(
           `[Twilio] Stream started — callId: ${callId} | streamSid: ${message.streamSid} | encoding: ${message.start.mediaFormat.encoding} @ ${message.start.mediaFormat.sampleRate}Hz`
         );
-        createSession(callId);
+        const initialState = createSession(callId);
+        broadcast({ type: "STATE_UPDATE", payload: initialState });
         openGeminiSession(callId, onGeminiResponse).catch((err: Error) => {
           console.error(
             `[Gemini] Failed to open session for callId: ${callId} — ${err.message}`
@@ -287,6 +294,13 @@ dashboardWss.on("connection", (ws: WebSocket) => {
     `[Dashboard] Frontend client connected — total clients: ${getDashboardClientCount() + 1}`
   );
   addDashboardClient(ws);
+
+  // Catch up: Twilio may have started calls before the dashboard connected
+  for (const state of getAllSessions()) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "STATE_UPDATE", payload: state }));
+    }
+  }
 
   ws.on("close", () => {
     console.log(
