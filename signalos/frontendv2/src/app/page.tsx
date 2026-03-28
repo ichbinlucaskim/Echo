@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import AlertPopup from "../components/AlertPopup";
 import BottomNav, { type BottomTab } from "../components/BottomNav";
 import AnalyticsPanel from "../components/AnalyticsPanel";
 import DispatchList from "../components/DispatchList";
@@ -20,12 +19,7 @@ export default function Home() {
     <main className="relative w-screen h-screen overflow-hidden bg-black font-sans antialiased text-white selection:bg-red-500/30">
       <MapBackground />
 
-      {activeTab === "calls" && (
-        <>
-          <Sidebar />
-          <AlertPopup />
-        </>
-      )}
+      {activeTab === "calls" && <Sidebar />}
 
       {activeTab === "dispatch" && <DispatchList />}
 
