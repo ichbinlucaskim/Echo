@@ -102,11 +102,6 @@ export default function CallCard({ call }: CallCardProps) {
           {formatCategory(category)}
         </span>
 
-        {call.transcript && (
-          <p className="text-gray-400 text-[12px] leading-relaxed line-clamp-2 font-mono">
-            {call.transcript.slice(-120)}
-          </p>
-        )}
       </div>
     </button>
   );
