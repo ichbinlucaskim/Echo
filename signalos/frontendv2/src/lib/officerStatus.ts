@@ -46,10 +46,25 @@ export function normalizeOfficerStatus(raw: string): OfficerStatus {
   return "unavailable";
 }
 
-/** Data URL for Google Maps Marker.icon — matches dispatch list text colors. */
+/**
+ * Scaled marker size on the map; anchor = bottom tip of the pin (lat/lng point).
+ */
+export const OFFICER_MARKER_LAYOUT = {
+  width: 30,
+  height: 45,
+  anchorX: 15,
+  anchorY: 41,
+} as const;
+
+/**
+ * Teardrop map pin — fill/stroke match dispatch badge text colors (green / yellow / red / gray).
+ */
 export function officerMarkerIconDataUrl(status: string): string {
   const s = normalizeOfficerStatus(status);
   const { fill, stroke } = PIN_COLORS[s];
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 24 36" aria-hidden="true">
+  <path fill="${fill}" stroke="${stroke}" stroke-width="1.1" stroke-linejoin="round" d="M12 2C7.58 2 4 5.58 4 10c0 8 8 23 8 23s8-15 8-23c0-4.42-3.58-8-8-8z"/>
+  <circle cx="12" cy="10" r="3.25" fill="#ffffff" fill-opacity="0.95"/>
+</svg>`;
   return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
 }

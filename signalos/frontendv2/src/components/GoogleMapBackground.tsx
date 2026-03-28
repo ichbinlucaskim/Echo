@@ -4,7 +4,10 @@ import { useJsApiLoader, GoogleMap, Marker } from "@react-google-maps/api";
 import { useEffect, useMemo, useState } from "react";
 import { useSignalOSContext } from "../context/SignalOSContext";
 import { getSupabase } from "../lib/supabase";
-import { officerMarkerIconDataUrl } from "../lib/officerStatus";
+import {
+  officerMarkerIconDataUrl,
+  OFFICER_MARKER_LAYOUT,
+} from "../lib/officerStatus";
 
 interface Officer {
   id: string;
@@ -219,7 +222,7 @@ export default function GoogleMapBackground() {
           );
         })}
 
-        {/* Red pins — police officers */}
+        {/* Officer pins — color by status (see officerStatus.ts) */}
         {officers
           .filter((o) => o.lat !== 0 && o.lng !== 0)
           .map((officer) => (
@@ -228,7 +231,14 @@ export default function GoogleMapBackground() {
               position={{ lat: officer.lat, lng: officer.lng }}
               icon={{
                 url: officerMarkerIconDataUrl(officer.status),
-                scaledSize: new window.google.maps.Size(32, 32),
+                scaledSize: new window.google.maps.Size(
+                  OFFICER_MARKER_LAYOUT.width,
+                  OFFICER_MARKER_LAYOUT.height
+                ),
+                anchor: new window.google.maps.Point(
+                  OFFICER_MARKER_LAYOUT.anchorX,
+                  OFFICER_MARKER_LAYOUT.anchorY
+                ),
               }}
               title={`${officer.code} — ${officer.name} (${officer.status})`}
             />
