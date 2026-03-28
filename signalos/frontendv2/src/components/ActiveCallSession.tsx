@@ -2,6 +2,7 @@
 
 import { ArrowRight, Mic, MicOff, Phone, PhoneOff, X } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useSelectedCall } from "../context/SelectedCallContext";
 import { useSignalOSContext } from "../context/SignalOSContext";
 import AudioWaveform from "./AudioWaveform";
@@ -60,7 +61,13 @@ export default function ActiveCallSession() {
   const { selectedCallId, clearSelection } = useSelectedCall();
   const { calls, activeAlert, dismissAlert, connected, sendCommand } =
     useSignalOSContext();
+  const router = useRouter();
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+
+  const goBack = () => {
+    clearSelection();
+    router.push("/");
+  };
 
   const call = selectedCallId ? calls[selectedCallId] : undefined;
 
@@ -117,10 +124,11 @@ export default function ActiveCallSession() {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcriptLines]);
 
-  // Server ended the call (Twilio hangup / stream stop) — leave the overlay
+  // Server ended the call (Twilio hangup / stream stop) — navigate back
   useEffect(() => {
-    if (selectedCallId && !calls[selectedCallId]) clearSelection();
-  }, [selectedCallId, calls, clearSelection]);
+    if (selectedCallId && !calls[selectedCallId]) goBack();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCallId, calls]);
 
   if (!selectedCallId || !call) return null;
 
@@ -147,7 +155,7 @@ export default function ActiveCallSession() {
         <div className="flex justify-end mb-4">
           <button
             type="button"
-            onClick={clearSelection}
+            onClick={goBack}
             className="rounded-[12px] p-2 text-white/50 hover:bg-white/[0.06] hover:text-white transition-colors"
             aria-label="Close call view"
           >
@@ -371,7 +379,7 @@ export default function ActiveCallSession() {
               onClick={() => {
                 sendCommand({ type: "END_CALL", callId: call.callId });
                 if (isAlert) dismissAlert();
-                clearSelection();
+                goBack();
               }}
               className={`h-[56px] w-[56px] md:h-[60px] md:w-[60px] ${cardRadius} flex items-center justify-center text-white transition-opacity ${
                 controlsDisabled

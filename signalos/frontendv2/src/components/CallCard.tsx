@@ -1,5 +1,6 @@
 import { Phone } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CallState } from "../types";
 import { useSelectedCall } from "../context/SelectedCallContext";
 
@@ -33,6 +34,7 @@ function formatCategory(cat: string): string {
 export default function CallCard({ call }: CallCardProps) {
   const [duration, setDuration] = useState("0:00");
   const { selectedCallId, selectCall } = useSelectedCall();
+  const router = useRouter();
 
   const isAlert = call.status === "ALERT";
   const isOnHold = call.status === "ON-HOLD" || call.onHold;
@@ -75,7 +77,10 @@ export default function CallCard({ call }: CallCardProps) {
     <button
       type="button"
       className={`w-full text-left flex flex-col border ${ringColor} ${selectionAccent} rounded-xl overflow-hidden transition-all duration-300 backdrop-blur-md cursor-pointer hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/80`}
-      onClick={() => selectCall(call.callId)}
+      onClick={() => {
+        selectCall(call.callId);
+        router.push(`/call/${call.callId}`);
+      }}
     >
       <div className="flex items-center justify-between p-4 px-5">
         <div className="flex items-center gap-4 min-w-0">
