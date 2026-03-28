@@ -14,6 +14,33 @@ interface Officer {
   lng: number;
 }
 
+const GRAY_OFFICER_MARKER_URL =
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#9ca3af" stroke="#6b7280" stroke-width="1.5"/></svg>`
+  );
+
+/**
+ * Officer.status: available (green), busy (yellow), unavailable (gray).
+ * Accepts nonavailable / unavailable / common typos; hyphens/spaces normalized.
+ */
+function officerMarkerIconUrl(status: string): string {
+  const base = "https://maps.google.com/mapfiles/ms/icons";
+  const key = status.toLowerCase().trim().replace(/[-_\s]/g, "");
+
+  if (key === "available") return `${base}/green-dot.png`;
+  if (key === "busy") return `${base}/yellow-dot.png`;
+  if (
+    key === "nonavailable" ||
+    key === "unavailable" ||
+    key === "unavilable"
+  ) {
+    return GRAY_OFFICER_MARKER_URL;
+  }
+
+  return `${base}/blue-dot.png`;
+}
+
 const MAP_OPTIONS = {
   disableDefaultUI: true,
   zoomControl: false,
@@ -211,7 +238,7 @@ export default function GoogleMapBackground() {
               key={`call-${call.callId}`}
               position={loc}
               icon={{
-                url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                url: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png",
                 scaledSize: new window.google.maps.Size(32, 32),
               }}
             />
@@ -226,10 +253,10 @@ export default function GoogleMapBackground() {
               key={`officer-${officer.id}`}
               position={{ lat: officer.lat, lng: officer.lng }}
               icon={{
-                url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+                url: officerMarkerIconUrl(officer.status),
                 scaledSize: new window.google.maps.Size(32, 32),
               }}
-              title={`${officer.code} — ${officer.status}`}
+              title={`${officer.code} — ${officer.name} (${officer.status})`}
             />
           ))}
       </GoogleMap>
