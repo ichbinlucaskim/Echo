@@ -369,7 +369,11 @@ twilioWss.on("connection", (ws: WebSocket) => {
         }
 
         const session = getSession(callId);
-        if (session?.muted || session?.onHold) {
+        // Session gone (e.g. dashboard END_CALL) but simulator/Twilio may still send media — ignore.
+        if (!session) {
+          break;
+        }
+        if (session.muted || session.onHold) {
           break;
         }
 

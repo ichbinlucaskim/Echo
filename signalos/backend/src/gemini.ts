@@ -399,7 +399,7 @@ export async function openGeminiSession(
 export function sendAudioToGemini(callId: string, pcm16kBuffer: Buffer): void {
   const session = activeSessions.get(callId);
   if (!session) {
-    console.warn(`[Gemini] No session for callId: ${callId}`);
+    // Normal after hangup: Twilio/simulator may still send media briefly with no Gemini session.
     return;
   }
   session.sendAudio(pcm16kBuffer);
