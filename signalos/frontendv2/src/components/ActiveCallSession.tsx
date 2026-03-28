@@ -287,8 +287,30 @@ export default function ActiveCallSession() {
           </div>
         </div>
 
-        {/* Bottom center: call controls — server + Twilio (hang up) */}
-        <div className="shrink-0 flex flex-col items-center gap-2 pt-8 md:pt-10">
+        {/* Bottom center: call controls */}
+        <div className="shrink-0 flex flex-col items-center gap-3 pt-8 md:pt-10">
+          {/* Route to Non-Emergency button */}
+          {call.status !== "ROUTED" && (
+            <button
+              type="button"
+              disabled={controlsDisabled}
+              onClick={() =>
+                sendCommand({ type: "ROUTE_NON_EMERGENCY", callId: call.callId })
+              }
+              className={`px-6 py-2 ${cardRadius} text-[14px] font-semibold border transition-opacity ${
+                controlsDisabled
+                  ? "opacity-40 cursor-not-allowed border-gray-600 text-gray-500"
+                  : "border-gray-500 text-gray-300 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              Route to Non-Emergency
+            </button>
+          )}
+          {call.status === "ROUTED" && (
+            <p className="text-gray-500 text-xs font-medium">
+              Routed to Non-Emergency
+            </p>
+          )}
           {!connected && (
             <p className="text-amber-400/90 text-xs font-medium">
               Not connected to server — controls disabled

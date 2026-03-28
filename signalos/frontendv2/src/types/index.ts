@@ -48,4 +48,5 @@ export type DashboardCommand =
   | { type: "SET_MUTE"; callId: string; muted: boolean }
   | { type: "SET_HOLD"; callId: string; onHold: boolean }
   | { type: "END_CALL"; callId: string }
-  | { type: "SELECT_CALL"; callId: string | null };
+  | { type: "SELECT_CALL"; callId: string | null }
+  | { type: "ROUTE_NON_EMERGENCY"; callId: string };

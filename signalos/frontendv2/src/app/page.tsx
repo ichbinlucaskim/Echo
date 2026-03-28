@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import AlertPopup from "../components/AlertPopup";
 import BottomNav, { type BottomTab } from "../components/BottomNav";
+import AnalyticsPanel from "../components/AnalyticsPanel";
 import DispatchList from "../components/DispatchList";
 import Sidebar from "../components/Sidebar";
 
@@ -27,6 +28,8 @@ export default function Home() {
       )}
 
       {activeTab === "dispatch" && <DispatchList />}
+
+      {activeTab === "analytics" && <AnalyticsPanel />}
 
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </main>

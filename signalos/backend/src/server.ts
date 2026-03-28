@@ -27,6 +27,7 @@ import {
 } from "./gemini";
 import { twilioChunkToGeminiAudio } from "./utils/transcode";
 import { AlertPayload, AnomalyType, CallCategory } from "./types";
+import { saveCallLog } from "./callLogger";
 
 dotenv.config();
 
@@ -189,6 +190,18 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
       );
       if (updatedState) {
         broadcast({ type: "STATE_UPDATE", payload: updatedState });
+      }
+
+      // Auto-route non-emergency calls
+      if (category === "NON_EMERGENCY") {
+        console.log(
+          `[Route] Auto-routing callId: ${callId} to non-emergency (Gemini categorized)`
+        );
+        const routed = markRouted(callId);
+        if (routed) {
+          broadcast({ type: "STATE_UPDATE", payload: routed });
+        }
+        return;
       }
 
       if (category === "SILENT_DISTRESS") {
@@ -407,6 +420,8 @@ twilioWss.on("connection", (ws: WebSocket) => {
           `[Twilio] Stream stopped — callId: ${callId ?? message.stop.callSid}`
         );
         if (callId) {
+          const endedSession = getSession(callId);
+          if (endedSession) void saveCallLog(endedSession);
           closeGeminiSession(callId);
           deleteSession(callId);
           broadcast({ type: "CALL_ENDED", payload: { callId } });
@@ -420,6 +435,8 @@ twilioWss.on("connection", (ws: WebSocket) => {
     console.log(`[Twilio] Connection closed — callId: ${callId ?? "unknown"}`);
     if (callId) {
       const ended = callId;
+      const endedSession = getSession(ended);
+      if (endedSession) void saveCallLog(endedSession);
       closeGeminiSession(ended);
       deleteSession(ended);
       broadcast({ type: "CALL_ENDED", payload: { callId: ended } });
@@ -440,7 +457,8 @@ type DashboardInbound =
   | { type: "SET_MUTE"; callId: string; muted: boolean }
   | { type: "SET_HOLD"; callId: string; onHold: boolean }
   | { type: "END_CALL"; callId: string }
-  | { type: "SELECT_CALL"; callId: string | null };
+  | { type: "SELECT_CALL"; callId: string | null }
+  | { type: "ROUTE_NON_EMERGENCY"; callId: string };
 
 function parseDashboardInbound(data: unknown): DashboardInbound | null {
   if (!data || typeof data !== "object") return null;
@@ -462,6 +480,8 @@ function parseDashboardInbound(data: unknown): DashboardInbound | null {
       return { type: "SET_HOLD", callId: o.callId, onHold: o.onHold };
     case "END_CALL":
       return { type: "END_CALL", callId: o.callId };
+    case "ROUTE_NON_EMERGENCY":
+      return { type: "ROUTE_NON_EMERGENCY", callId: o.callId };
     default:
       return null;
   }
@@ -503,6 +523,8 @@ function handleDashboardCommand(raw: RawData): void {
     }
     case "END_CALL": {
       void (async () => {
+        const endedSession = getSession(cmd.callId);
+        if (endedSession) await saveCallLog(endedSession);
         await hangupCall(cmd.callId);
         closeGeminiSession(cmd.callId);
         deleteSession(cmd.callId);
@@ -518,6 +540,14 @@ function handleDashboardCommand(raw: RawData): void {
     case "SELECT_CALL": {
       setSelectedCallId(cmd.callId);
       broadcast({ type: "SELECTION_UPDATE", payload: { callId: cmd.callId } });
+      break;
+    }
+    case "ROUTE_NON_EMERGENCY": {
+      const routed = markRouted(cmd.callId);
+      if (routed) {
+        console.log(`[Route] callId: ${cmd.callId} manually routed to non-emergency`);
+        broadcast({ type: "STATE_UPDATE", payload: routed });
+      }
       break;
     }
   }
