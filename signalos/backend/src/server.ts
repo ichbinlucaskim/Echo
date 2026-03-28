@@ -41,18 +41,34 @@ const VALID_ANOMALY_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 // ─── Audio gate: only forward Gemini audio for calls with an urgent category ──
+// Audio chunks often arrive BEFORE the categorizeCall function call in the same
+// Gemini turn, so we buffer them while the gate is closed and flush when it opens.
 const ALERT_ELIGIBLE: ReadonlySet<string> = new Set([
   "MEDICAL", "CRIME", "FIRE_HAZARD", "SILENT_DISTRESS",
 ]);
 const audioGateOpen = new Set<string>();
+const pendingAudio = new Map<string, Array<{ mimeType: string; data: string }>>();
 
 function openAudioGate(callId: string): void {
   audioGateOpen.add(callId);
   console.log(`[AudioGate] Opened for callId: ${callId}`);
+  // Flush any audio that arrived before the gate opened
+  const buffered = pendingAudio.get(callId);
+  if (buffered && buffered.length > 0) {
+    console.log(`[AudioGate] Flushing ${buffered.length} buffered chunks for callId: ${callId}`);
+    for (const chunk of buffered) {
+      broadcast({
+        type: "AUDIO_CHUNK",
+        payload: { callId, mimeType: chunk.mimeType, data: chunk.data },
+      });
+    }
+  }
+  pendingAudio.delete(callId);
 }
 
 function closeAudioGate(callId: string): void {
   audioGateOpen.delete(callId);
+  pendingAudio.delete(callId);
 }
 
 const CALLER_NAMES: Record<string, string> = {
@@ -145,13 +161,21 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
     if (!session) return;
     if (session.muted || session.onHold) return;
 
-    // Only forward audio for calls whose gate has been opened by categorizeCall
-    if (!audioGateOpen.has(callId)) return;
-
-    broadcast({
-      type: "AUDIO_CHUNK",
-      payload: { callId, mimeType: response.mimeType, data: response.data },
-    });
+    if (audioGateOpen.has(callId)) {
+      // Gate is open — forward immediately
+      broadcast({
+        type: "AUDIO_CHUNK",
+        payload: { callId, mimeType: response.mimeType, data: response.data },
+      });
+    } else {
+      // Gate closed — buffer in case categorizeCall opens it shortly
+      let buf = pendingAudio.get(callId);
+      if (!buf) {
+        buf = [];
+        pendingAudio.set(callId, buf);
+      }
+      buf.push({ mimeType: response.mimeType, data: response.data });
+    }
     return;
   }
 
