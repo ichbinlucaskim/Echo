@@ -6,6 +6,7 @@ import BottomNav, { type BottomTab } from "../components/BottomNav";
 import AnalyticsPanel from "../components/AnalyticsPanel";
 import DispatchList from "../components/DispatchList";
 import Sidebar from "../components/Sidebar";
+import AlertPopup from "../components/AlertPopup";
 
 // Opt-out of SSR for the Google Map so we don't hit "window is not defined"
 const MapBackground = dynamic(() => import("../components/GoogleMapBackground"), {
@@ -19,7 +20,12 @@ export default function Home() {
     <main className="relative w-screen h-screen overflow-hidden bg-black font-sans antialiased text-white selection:bg-red-500/30">
       <MapBackground />
 
-      {activeTab === "calls" && <Sidebar />}
+      {activeTab === "calls" && (
+        <>
+          <Sidebar />
+          <AlertPopup />
+        </>
+      )}
 
       {activeTab === "dispatch" && <DispatchList />}
 
