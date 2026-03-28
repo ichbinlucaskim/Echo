@@ -218,18 +218,6 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
         broadcast({ type: "STATE_UPDATE", payload: updatedState });
       }
 
-      // Auto-route non-emergency calls
-      if (category === "NON_EMERGENCY") {
-        console.log(
-          `[Route] Auto-routing callId: ${callId} to non-emergency (Gemini categorized)`
-        );
-        const routed = markRouted(callId);
-        if (routed) {
-          broadcast({ type: "STATE_UPDATE", payload: routed });
-        }
-        return;
-      }
-
       // Auto-trigger alert for high-severity categories
       const ALERT_CATEGORIES: Record<string, { anomalyType: AnomalyType; label: string }> = {
         SILENT_DISTRESS: { anomalyType: "WHISPER", label: "Silent Distress" },

@@ -37,40 +37,19 @@ const CATEGORY_LABELS: Record<string, string> = {
   SILENT_DISTRESS: "Silent Distress",
 };
 
-/** Base stress per category — applied when Gemini categorizes the call. */
-const CATEGORY_BASE_STRESS: Record<string, number> = {
-  MONITORING: 0,
-  NON_EMERGENCY: 10,
-  TRAFFIC: 40,
-  MEDICAL: 60,
-  FIRE_HAZARD: 75,
-  CRIME: 85,
-  SILENT_DISTRESS: 95,
+const CATEGORY_COLORS: Record<string, string> = {
+  MONITORING: "#8E8E93",
+  NON_EMERGENCY: "#34C759",
+  TRAFFIC: "#FF9500",
+  MEDICAL: "#007AFF",
+  FIRE_HAZARD: "#FF9500",
+  CRIME: "#FF3B30",
+  SILENT_DISTRESS: "#AF52DE",
 };
 
-function computeStress(
-  category: string,
-  categoryConfidence: number,
-  isAlert: boolean,
-  alertConfidence: number | undefined
-): number {
-  // Alert overrides — use alert confidence directly
-  if (isAlert && alertConfidence != null) {
-    return Math.min(99, Math.round(alertConfidence * 100));
-  }
-  if (isAlert) return 80;
-
-  // Category-based stress: base stress scaled by confidence
-  const base = CATEGORY_BASE_STRESS[category] ?? 0;
-  if (base === 0 || categoryConfidence === 0) return 0;
-  return Math.min(99, Math.round(base * categoryConfidence));
-}
-
-function stressLabel(pct: number): string {
-  if (pct >= 70) return "Mentally Unstable";
-  if (pct >= 45) return "Elevated";
-  if (pct > 0) return "Mild";
-  return "Stable";
+function isHighSeverity(category: string, isAlert: boolean): boolean {
+  if (isAlert) return true;
+  return ["MEDICAL", "CRIME", "FIRE_HAZARD", "SILENT_DISTRESS"].includes(category);
 }
 
 const cardRadius = "rounded-[14px]";
@@ -99,8 +78,8 @@ export default function ActiveCallSession() {
   const categoryLabel = CATEGORY_LABELS[category] ?? category;
   const categorySummary = call?.categorySummary ?? "";
 
-  const stress = computeStress(category, call?.categoryConfidence ?? 0, isAlert, alertForCall?.confidence);
-  const stressText = stressLabel(stress);
+  const highSeverity = isHighSeverity(category, isAlert);
+  const categoryColor = CATEGORY_COLORS[category] ?? CATEGORY_COLORS.MONITORING;
 
   // Build transcript lines from real backend data
   const transcriptLines = useMemo(() => {
@@ -206,7 +185,7 @@ export default function ActiveCallSession() {
         </div>
       </header>
 
-      {/* Main: dispatch | waveform | stress+transcript */}
+      {/* Main: dispatch | waveform | category+transcript */}
       <div className="flex-1 flex flex-col min-h-0 px-5 md:px-8 pb-6">
         <div
           className="flex-1 grid min-h-0 gap-6 md:gap-8 grid-cols-1 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,300px)] lg:items-stretch lg:grid-rows-1 auto-rows-min"
@@ -230,24 +209,26 @@ export default function ActiveCallSession() {
             )}
           </div>
 
-          {/* Right: Stress + Transcript */}
+          {/* Right: Category + Transcript */}
           <div className="order-3 flex flex-col gap-4 min-h-0 lg:min-h-0">
             <section
               className={`${cardRadius} bg-white p-5 md:p-6 shrink-0 border-t-[3px]`}
-              style={{ borderTopColor: stress >= 45 ? C.alertRed : C.dispatchGreen }}
+              style={{ borderTopColor: highSeverity ? C.alertRed : categoryColor }}
             >
               <h3 className="font-bold text-[17px] text-black mb-3 tracking-tight">
-                Stress Level
+                Category
               </h3>
               <p
-                className="text-[42px] md:text-[48px] font-bold leading-none tracking-tight"
-                style={{ color: stress >= 45 ? C.alertRed : C.dispatchGreen }}
+                className="text-[28px] md:text-[32px] font-bold leading-none tracking-tight"
+                style={{ color: highSeverity ? C.alertRed : categoryColor }}
               >
-                {stress > 0 ? `${stress}%` : "—"}
+                {categoryLabel}
               </p>
-              <p className="text-[15px] text-black font-medium mt-2">
-                {stressText}
-              </p>
+              {categorySummary && (
+                <p className="text-[14px] text-gray-500 font-medium mt-2 leading-snug">
+                  {categorySummary}
+                </p>
+              )}
             </section>
 
             <section
