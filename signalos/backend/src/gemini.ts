@@ -239,7 +239,7 @@ class GeminiLiveSession {
               },
             ],
             generationConfig: {
-              responseModalities: ["AUDIO", "TEXT"],
+              responseModalities: ["AUDIO"],
             },
             inputAudioTranscription: {},
             outputAudioTranscription: {},
