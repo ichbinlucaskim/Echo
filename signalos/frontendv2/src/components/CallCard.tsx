@@ -27,21 +27,21 @@ const CATEGORY_COLORS: Record<string, string> = {
   MONITORING: "bg-white/10 text-gray-500 border-white/10",
 };
 
-const CATEGORY_SEVERITY: Record<string, number> = {
+const CATEGORY_BASE_STRESS: Record<string, number> = {
   MONITORING: 0,
-  NON_EMERGENCY: 0.15,
-  TRAFFIC: 0.35,
-  MEDICAL: 0.55,
-  FIRE_HAZARD: 0.7,
-  CRIME: 0.8,
-  SILENT_DISTRESS: 0.9,
+  NON_EMERGENCY: 10,
+  TRAFFIC: 40,
+  MEDICAL: 60,
+  FIRE_HAZARD: 75,
+  CRIME: 85,
+  SILENT_DISTRESS: 95,
 };
 
 function computeStress(category: string, categoryConfidence: number, isAlert: boolean): number {
   if (isAlert) return 80;
-  const severity = CATEGORY_SEVERITY[category] ?? 0;
-  if (severity === 0 || categoryConfidence === 0) return 0;
-  return Math.min(99, Math.round(severity * categoryConfidence * 100));
+  const base = CATEGORY_BASE_STRESS[category] ?? 0;
+  if (base === 0 || categoryConfidence === 0) return 0;
+  return Math.min(99, Math.round(base * categoryConfidence));
 }
 
 function formatCategory(cat: string): string {

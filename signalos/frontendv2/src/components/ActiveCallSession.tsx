@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowRight, Mic, MicOff, Phone, PhoneOff, X } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, X } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSignalOSContext } from "../context/SignalOSContext";
 import AudioWaveform from "./AudioWaveform";
+import NearestPolice from "./NearestPolice";
 
 const C = {
   bg: "#121212",
@@ -36,15 +37,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   SILENT_DISTRESS: "Silent Distress",
 };
 
-/** Category severity weights — higher = more stressful. */
-const CATEGORY_SEVERITY: Record<string, number> = {
+/** Base stress per category — applied when Gemini categorizes the call. */
+const CATEGORY_BASE_STRESS: Record<string, number> = {
   MONITORING: 0,
-  NON_EMERGENCY: 0.15,
-  TRAFFIC: 0.35,
-  MEDICAL: 0.55,
-  FIRE_HAZARD: 0.7,
-  CRIME: 0.8,
-  SILENT_DISTRESS: 0.9,
+  NON_EMERGENCY: 10,
+  TRAFFIC: 40,
+  MEDICAL: 60,
+  FIRE_HAZARD: 75,
+  CRIME: 85,
+  SILENT_DISTRESS: 95,
 };
 
 function computeStress(
@@ -59,10 +60,10 @@ function computeStress(
   }
   if (isAlert) return 80;
 
-  // Category-based stress: severity × confidence
-  const severity = CATEGORY_SEVERITY[category] ?? 0;
-  if (severity === 0 || categoryConfidence === 0) return 0;
-  return Math.min(99, Math.round(severity * categoryConfidence * 100));
+  // Category-based stress: base stress scaled by confidence
+  const base = CATEGORY_BASE_STRESS[category] ?? 0;
+  if (base === 0 || categoryConfidence === 0) return 0;
+  return Math.min(99, Math.round(base * categoryConfidence));
 }
 
 function stressLabel(pct: number): string {
@@ -209,54 +210,11 @@ export default function ActiveCallSession() {
         <div
           className="flex-1 grid min-h-0 gap-6 md:gap-8 grid-cols-1 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,300px)] lg:items-stretch lg:grid-rows-1 auto-rows-min"
         >
-          {/* Left: Call Info */}
+          {/* Left: Nearest Police */}
           <section
             className={`order-2 lg:order-1 ${cardRadius} bg-white p-5 md:p-6 flex flex-col shadow-none border-0`}
           >
-            <h3 className="font-bold text-[17px] text-black mb-5 tracking-tight">
-              Call Info
-            </h3>
-
-            {/* Category badge */}
-            <div
-              className={`${cardRadius} border-2 px-4 py-3.5 mb-4`}
-              style={{
-                borderColor: isAlert ? C.alertRed : C.dispatchGreen,
-                backgroundColor: isAlert ? "rgba(255, 59, 48, 0.06)" : "rgba(52, 199, 89, 0.06)",
-              }}
-            >
-              <p className="font-bold text-[15px] text-black tracking-tight uppercase">
-                {categoryLabel}
-              </p>
-              {categorySummary && (
-                <p className="text-[13px] text-neutral-500 mt-1.5">
-                  {categorySummary}
-                </p>
-              )}
-            </div>
-
-            {/* Alert details */}
-            {alertForCall && (
-              <div className={`${cardRadius} border border-red-200 bg-red-50 px-4 py-3.5 mb-4`}>
-                <p className="font-bold text-[13px] text-red-600 uppercase tracking-wide">
-                  {alertForCall.anomalyType} — {Math.round(alertForCall.confidence * 100)}%
-                </p>
-                {alertForCall.suggestedResponse && (
-                  <p className="text-[13px] text-red-800 mt-1.5">
-                    {alertForCall.suggestedResponse}
-                  </p>
-                )}
-              </div>
-            )}
-
-            <button
-              type="button"
-              className={`mt-auto w-full ${cardRadius} py-3.5 px-5 font-bold text-[16px] text-white flex flex-row items-center justify-between transition-opacity hover:opacity-95 active:opacity-90`}
-              style={{ backgroundColor: C.dispatchGreen }}
-            >
-              <span>Dispatch</span>
-              <ArrowRight className="w-5 h-5 shrink-0" strokeWidth={2.5} />
-            </button>
+            <NearestPolice />
           </section>
 
           {/* Center: waveform */}
