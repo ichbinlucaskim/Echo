@@ -10,6 +10,8 @@ export function createSession(callId: string): CallState {
     startedAt: new Date(),
     category: "MONITORING",
     categorySummary: "",
+    muted: false,
+    onHold: false,
   };
   sessions.set(callId, state);
   console.log(
@@ -92,6 +94,27 @@ export function markRouted(callId: string): CallState | null {
   };
   sessions.set(callId, updated);
   return updated;
+}
+
+export function setMuted(callId: string, muted: boolean): CallState | null {
+  return updateSession(callId, { muted });
+}
+
+export function setCallHold(callId: string, onHold: boolean): CallState | null {
+  const existing = sessions.get(callId);
+  if (!existing) return null;
+
+  if (onHold) {
+    if (existing.status === "ACTIVE") {
+      return updateSession(callId, { status: "ON-HOLD", onHold: true });
+    }
+    return updateSession(callId, { onHold: true });
+  }
+
+  if (existing.status === "ON-HOLD") {
+    return updateSession(callId, { status: "ACTIVE", onHold: false });
+  }
+  return updateSession(callId, { onHold: false });
 }
 
 export function deleteSession(callId: string): void {

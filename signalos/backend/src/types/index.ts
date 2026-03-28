@@ -16,6 +16,10 @@ export interface CallState {
   startedAt: Date;
   category: CallCategory;
   categorySummary: string;
+  /** When true, inbound audio is not sent to Gemini; AI audio is not sent to dashboard. */
+  muted: boolean;
+  /** When true, same processing pause as mute; status may be ON-HOLD. Optional Twilio redirect if env URLs set. */
+  onHold: boolean;
 }
 
 export interface AlertPayload {
@@ -33,7 +37,8 @@ export interface AudioChunkPayload {
   data: string; // base64-encoded PCM
 }
 
-export interface BroadcastMessage {
-  type: "STATE_UPDATE" | "ALERT" | "AUDIO_CHUNK";
-  payload: CallState | AlertPayload | AudioChunkPayload;
-}
+export type BroadcastMessage =
+  | { type: "STATE_UPDATE"; payload: CallState }
+  | { type: "ALERT"; payload: AlertPayload }
+  | { type: "AUDIO_CHUNK"; payload: AudioChunkPayload }
+  | { type: "CALL_ENDED"; payload: { callId: string } };

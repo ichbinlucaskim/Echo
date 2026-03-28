@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, MicOff, Phone, PhoneOff, X } from "lucide-react";
+import { ArrowRight, Mic, MicOff, Phone, PhoneOff, X } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useSelectedCall } from "../context/SelectedCallContext";
 import { useSignalOSContext } from "../context/SignalOSContext";
@@ -58,7 +58,8 @@ const cardRadius = "rounded-[14px]";
 
 export default function ActiveCallSession() {
   const { selectedCallId, clearSelection } = useSelectedCall();
-  const { calls, activeAlert, dismissAlert } = useSignalOSContext();
+  const { calls, activeAlert, dismissAlert, connected, sendCommand } =
+    useSignalOSContext();
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const call = selectedCallId ? calls[selectedCallId] : undefined;
@@ -116,9 +117,18 @@ export default function ActiveCallSession() {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcriptLines]);
 
+  // Server ended the call (Twilio hangup / stream stop) — leave the overlay
+  useEffect(() => {
+    if (selectedCallId && !calls[selectedCallId]) clearSelection();
+  }, [selectedCallId, calls, clearSelection]);
+
   if (!selectedCallId || !call) return null;
 
   const callerFirst = name.split(" ")[0] ?? name;
+  const muted = call.muted ?? false;
+  const onHold = call.onHold ?? false;
+  const waveformPaused = muted || onHold;
+  const controlsDisabled = !connected;
 
   return (
     <div
@@ -227,7 +237,14 @@ export default function ActiveCallSession() {
 
           {/* Center: waveform */}
           <div className="order-1 lg:order-2 flex flex-col items-center justify-center min-h-[160px] lg:min-h-0 py-2 lg:py-8">
-            <AudioWaveform />
+            <AudioWaveform paused={waveformPaused} />
+            {(muted || onHold) && (
+              <p className="mt-3 text-xs text-white/45 tracking-wide text-center max-w-xs">
+                {[onHold && "On hold", muted && "Monitoring muted"]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
           </div>
 
           {/* Right: Stress + Transcript */}
@@ -288,42 +305,85 @@ export default function ActiveCallSession() {
           </div>
         </div>
 
-        {/* Bottom center: call controls */}
-        <div className="shrink-0 flex justify-center items-center gap-5 md:gap-6 pt-8 md:pt-10">
-          <button
-            type="button"
-            className={`h-[56px] w-[56px] md:h-[60px] md:w-[60px] ${cardRadius} flex items-center justify-center text-white transition-opacity hover:opacity-90`}
-            style={{ backgroundColor: C.muteGray }}
-            aria-label="Mute"
-          >
-            <MicOff className="w-6 h-6" strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className={`h-[56px] w-[56px] md:h-[60px] md:w-[60px] ${cardRadius} flex items-center justify-center text-white transition-opacity hover:opacity-90`}
-            style={{ backgroundColor: C.holdOrange }}
-            aria-label="Hold"
-          >
-            <span className="flex flex-col items-center justify-center gap-0.5">
-              <span className="flex gap-1">
-                <span className="w-[3px] h-2.5 bg-white rounded-[1px]" />
-                <span className="w-[3px] h-2.5 bg-white rounded-[1px]" />
+        {/* Bottom center: call controls — server + Twilio (hang up) */}
+        <div className="shrink-0 flex flex-col items-center gap-2 pt-8 md:pt-10">
+          {!connected && (
+            <p className="text-amber-400/90 text-xs font-medium">
+              Not connected to server — controls disabled
+            </p>
+          )}
+          <div className="flex justify-center items-center gap-5 md:gap-6">
+            <button
+              type="button"
+              disabled={controlsDisabled}
+              onClick={() =>
+                sendCommand({
+                  type: "SET_MUTE",
+                  callId: call.callId,
+                  muted: !muted,
+                })
+              }
+              className={`h-[56px] w-[56px] md:h-[60px] md:w-[60px] ${cardRadius} flex items-center justify-center text-white transition-opacity ${
+                controlsDisabled
+                  ? "opacity-40 cursor-not-allowed"
+                  : "hover:opacity-90"
+              } ${muted ? "ring-2 ring-white/70 ring-offset-2 ring-offset-[#121212]" : ""}`}
+              style={{ backgroundColor: C.muteGray }}
+              aria-label={muted ? "Unmute monitoring" : "Mute monitoring"}
+              aria-pressed={muted}
+            >
+              {muted ? (
+                <MicOff className="w-6 h-6" strokeWidth={2} />
+              ) : (
+                <Mic className="w-6 h-6" strokeWidth={2} />
+              )}
+            </button>
+            <button
+              type="button"
+              disabled={controlsDisabled}
+              onClick={() =>
+                sendCommand({
+                  type: "SET_HOLD",
+                  callId: call.callId,
+                  onHold: !onHold,
+                })
+              }
+              className={`h-[56px] w-[56px] md:h-[60px] md:w-[60px] ${cardRadius} flex items-center justify-center text-white transition-opacity ${
+                controlsDisabled
+                  ? "opacity-40 cursor-not-allowed"
+                  : "hover:opacity-90"
+              } ${onHold ? "ring-2 ring-white/70 ring-offset-2 ring-offset-[#121212]" : ""}`}
+              style={{ backgroundColor: C.holdOrange }}
+              aria-label={onHold ? "Resume call" : "Hold call"}
+              aria-pressed={onHold}
+            >
+              <span className="flex flex-col items-center justify-center gap-0.5">
+                <span className="flex gap-1">
+                  <span className="w-[3px] h-2.5 bg-white rounded-[1px]" />
+                  <span className="w-[3px] h-2.5 bg-white rounded-[1px]" />
+                </span>
+                <Phone className="w-[18px] h-[18px] -scale-x-100" strokeWidth={2.5} />
               </span>
-              <Phone className="w-[18px] h-[18px] -scale-x-100" strokeWidth={2.5} />
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (isAlert) dismissAlert();
-              clearSelection();
-            }}
-            className={`h-[56px] w-[56px] md:h-[60px] md:w-[60px] ${cardRadius} flex items-center justify-center text-white transition-opacity hover:opacity-90`}
-            style={{ backgroundColor: C.endRed }}
-            aria-label="End call"
-          >
-            <PhoneOff className="w-6 h-6" strokeWidth={2} />
-          </button>
+            </button>
+            <button
+              type="button"
+              disabled={controlsDisabled}
+              onClick={() => {
+                sendCommand({ type: "END_CALL", callId: call.callId });
+                if (isAlert) dismissAlert();
+                clearSelection();
+              }}
+              className={`h-[56px] w-[56px] md:h-[60px] md:w-[60px] ${cardRadius} flex items-center justify-center text-white transition-opacity ${
+                controlsDisabled
+                  ? "opacity-40 cursor-not-allowed"
+                  : "hover:opacity-90"
+              }`}
+              style={{ backgroundColor: C.endRed }}
+              aria-label="End call"
+            >
+              <PhoneOff className="w-6 h-6" strokeWidth={2} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

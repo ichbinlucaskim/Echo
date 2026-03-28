@@ -51,3 +51,8 @@ body {
     opacity: 1;
   }
 }
+
+.waveform-paused .audio-wave-bar {
+  animation-play-state: paused;
+  opacity: 0.45;
+}

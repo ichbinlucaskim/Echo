@@ -35,6 +35,7 @@ export default function CallCard({ call }: CallCardProps) {
   const { selectedCallId, selectCall } = useSelectedCall();
 
   const isAlert = call.status === "ALERT";
+  const isOnHold = call.status === "ON-HOLD" || call.onHold;
   const isSelected = selectedCallId === call.callId;
   const name = MOCK_NAMES[call.callId] || DEFAULT_NAME;
   const category = call.category ?? "MONITORING";
@@ -54,23 +55,39 @@ export default function CallCard({ call }: CallCardProps) {
   }, [call.startedAt]);
 
   let ringColor = "border-[#1c447a] bg-[#0d1f3b]/30 text-[#4c90f0]";
-  if (isAlert) ringColor = "border-red-600 bg-red-900/30 text-red-500";
-  else if (isSelected)
+  let selectionAccent = "";
+
+  if (isAlert) {
+    ringColor = "border-red-600 bg-red-900/30 text-red-500";
+  } else if (isOnHold) {
+    ringColor =
+      "border-amber-500/90 bg-amber-950/35 text-amber-200 shadow-[0_0_0_1px_rgba(245,158,11,0.35)]";
+    if (isSelected) {
+      selectionAccent =
+        "ring-2 ring-emerald-500/85 ring-offset-2 ring-offset-[#151517]";
+    }
+  } else if (isSelected) {
     ringColor =
       "border-emerald-500/90 bg-emerald-950/35 text-emerald-300 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]";
+  }
 
   return (
     <button
       type="button"
-      className={`w-full text-left flex flex-col border ${ringColor} rounded-xl overflow-hidden transition-all duration-300 backdrop-blur-md cursor-pointer hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/80`}
+      className={`w-full text-left flex flex-col border ${ringColor} ${selectionAccent} rounded-xl overflow-hidden transition-all duration-300 backdrop-blur-md cursor-pointer hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/80`}
       onClick={() => selectCall(call.callId)}
     >
       <div className="flex items-center justify-between p-4 px-5">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0">
           <Phone className="w-4 h-4 shrink-0" />
-          <span className="text-gray-100 font-medium text-[15px] tracking-wide">
+          <span className="text-gray-100 font-medium text-[15px] tracking-wide truncate">
             {name}
           </span>
+          {isOnHold && !isAlert && (
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/25 text-amber-200 border border-amber-500/40">
+              Hold
+            </span>
+          )}
         </div>
         <span className="font-mono text-[14px] font-medium tracking-wider tabular-nums">
           {duration}

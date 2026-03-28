@@ -11,7 +11,11 @@ import {
   updateCategory,
   markRouted,
   getAllSessions,
+  getSession,
+  setMuted,
+  setCallHold,
 } from "./stateManager";
+import { hangupCall, redirectCall } from "./twilioVoice";
 import {
   openGeminiSession,
   sendAudioToGemini,
@@ -111,6 +115,10 @@ httpServer.on(
 
 function onGeminiResponse(callId: string, response: GeminiResponse): void {
   if (response.type === "audio") {
+    const session = getSession(callId);
+    if (session?.muted || session?.onHold) {
+      return;
+    }
     broadcast({
       type: "AUDIO_CHUNK",
       payload: {
@@ -350,6 +358,11 @@ twilioWss.on("connection", (ws: WebSocket) => {
           break;
         }
 
+        const session = getSession(callId);
+        if (session?.muted || session?.onHold) {
+          break;
+        }
+
         if (!firstChunkLogged) {
           console.log(
             `[Twilio] First audio chunk received — callId: ${callId} | payload length: ${audioPayload.length} bytes (base64 μ-law 8kHz) | chunk: ${message.media.chunk}`
@@ -369,6 +382,7 @@ twilioWss.on("connection", (ws: WebSocket) => {
         if (callId) {
           closeGeminiSession(callId);
           deleteSession(callId);
+          broadcast({ type: "CALL_ENDED", payload: { callId } });
           callId = null;
         }
         break;
@@ -378,8 +392,10 @@ twilioWss.on("connection", (ws: WebSocket) => {
   ws.on("close", () => {
     console.log(`[Twilio] Connection closed — callId: ${callId ?? "unknown"}`);
     if (callId) {
-      closeGeminiSession(callId);
-      deleteSession(callId);
+      const ended = callId;
+      closeGeminiSession(ended);
+      deleteSession(ended);
+      broadcast({ type: "CALL_ENDED", payload: { callId: ended } });
       callId = null;
     }
   });
@@ -390,6 +406,79 @@ twilioWss.on("connection", (ws: WebSocket) => {
     );
   });
 });
+
+// ─── Dashboard inbound (mute / hold / end) ───────────────────────────────────
+
+type DashboardInbound =
+  | { type: "SET_MUTE"; callId: string; muted: boolean }
+  | { type: "SET_HOLD"; callId: string; onHold: boolean }
+  | { type: "END_CALL"; callId: string };
+
+function parseDashboardInbound(data: unknown): DashboardInbound | null {
+  if (!data || typeof data !== "object") return null;
+  const o = data as Record<string, unknown>;
+  if (typeof o.type !== "string" || typeof o.callId !== "string" || !o.callId) {
+    return null;
+  }
+  switch (o.type) {
+    case "SET_MUTE":
+      if (typeof o.muted !== "boolean") return null;
+      return { type: "SET_MUTE", callId: o.callId, muted: o.muted };
+    case "SET_HOLD":
+      if (typeof o.onHold !== "boolean") return null;
+      return { type: "SET_HOLD", callId: o.callId, onHold: o.onHold };
+    case "END_CALL":
+      return { type: "END_CALL", callId: o.callId };
+    default:
+      return null;
+  }
+}
+
+function handleDashboardCommand(raw: RawData): void {
+  let parsed: unknown;
+  try {
+    const text =
+      typeof raw === "string"
+        ? raw
+        : Buffer.from(raw as ArrayBuffer).toString("utf-8");
+    parsed = JSON.parse(text);
+  } catch {
+    return;
+  }
+  const cmd = parseDashboardInbound(parsed);
+  if (!cmd) return;
+
+  switch (cmd.type) {
+    case "SET_MUTE": {
+      const updated = setMuted(cmd.callId, cmd.muted);
+      if (updated) broadcast({ type: "STATE_UPDATE", payload: updated });
+      break;
+    }
+    case "SET_HOLD": {
+      const updated = setCallHold(cmd.callId, cmd.onHold);
+      if (updated) {
+        broadcast({ type: "STATE_UPDATE", payload: updated });
+        const holdUrl = process.env.TWILIO_HOLD_TWIML_URL?.trim();
+        const resumeUrl = process.env.TWILIO_RESUME_TWIML_URL?.trim();
+        if (cmd.onHold && holdUrl) {
+          void redirectCall(cmd.callId, holdUrl);
+        } else if (!cmd.onHold && resumeUrl) {
+          void redirectCall(cmd.callId, resumeUrl);
+        }
+      }
+      break;
+    }
+    case "END_CALL": {
+      void (async () => {
+        await hangupCall(cmd.callId);
+        closeGeminiSession(cmd.callId);
+        deleteSession(cmd.callId);
+        broadcast({ type: "CALL_ENDED", payload: { callId: cmd.callId } });
+      })();
+      break;
+    }
+  }
+}
 
 // ─── Dashboard /dashboard handler ────────────────────────────────────────────
 
@@ -405,6 +494,10 @@ dashboardWss.on("connection", (ws: WebSocket) => {
       ws.send(JSON.stringify({ type: "STATE_UPDATE", payload: state }));
     }
   }
+
+  ws.on("message", (raw: RawData) => {
+    handleDashboardCommand(raw);
+  });
 
   ws.on("close", () => {
     console.log(

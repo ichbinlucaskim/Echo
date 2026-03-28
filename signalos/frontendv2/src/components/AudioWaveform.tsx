@@ -8,8 +8,13 @@ const BAR_COUNT = 9;
 const BAR_HEIGHTS_PX = [72, 92, 108, 72, 88, 48, 84, 72, 48];
 const BAR_WIDTHS_PX = [9, 10, 11, 9, 10, 8, 10, 9, 8];
 
+type AudioWaveformProps = {
+  /** Pause animation when monitoring is muted or call is on hold. */
+  paused?: boolean;
+};
+
 /** Animated center bars — simulates live audio (matches dashboard mock). */
-export default function AudioWaveform() {
+export default function AudioWaveform({ paused = false }: AudioWaveformProps) {
   const bars = useMemo(
     () =>
       Array.from({ length: BAR_COUNT }, (_, i) => ({
@@ -26,7 +31,7 @@ export default function AudioWaveform() {
 
   return (
     <div
-      className="flex items-end justify-center gap-[10px] md:gap-[14px] py-4"
+      className={`flex items-end justify-center gap-[10px] md:gap-[14px] py-4 ${paused ? "waveform-paused" : ""}`}
       aria-hidden
     >
       {bars.map(({ i, height, width, duration, delay, minScale, maxScale }) => (

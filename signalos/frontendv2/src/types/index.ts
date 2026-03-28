@@ -16,6 +16,8 @@ export interface CallState {
   startedAt: Date;
   category: CallCategory;
   categorySummary: string;
+  muted: boolean;
+  onHold: boolean;
 }
 
 export interface AlertPayload {
@@ -30,10 +32,17 @@ export interface AlertPayload {
 export interface AudioChunkPayload {
   callId: string;
   mimeType: string;
-  data: string; // base64-encoded PCM
+  data: string;
 }
 
-export interface BroadcastMessage {
-  type: "STATE_UPDATE" | "ALERT" | "AUDIO_CHUNK";
-  payload: CallState | AlertPayload | AudioChunkPayload;
-}
+export type BroadcastMessage =
+  | { type: "STATE_UPDATE"; payload: CallState }
+  | { type: "ALERT"; payload: AlertPayload }
+  | { type: "AUDIO_CHUNK"; payload: AudioChunkPayload }
+  | { type: "CALL_ENDED"; payload: { callId: string } };
+
+/** Commands: dashboard WebSocket → backend (same shape as server). */
+export type DashboardCommand =
+  | { type: "SET_MUTE"; callId: string; muted: boolean }
+  | { type: "SET_HOLD"; callId: string; onHold: boolean }
+  | { type: "END_CALL"; callId: string };
