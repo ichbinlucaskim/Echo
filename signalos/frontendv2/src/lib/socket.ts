@@ -62,6 +62,8 @@ export function useSignalOS(): SignalOSState {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const nextPlayTimeRef = useRef<Record<string, number>>({});
   const callsRef = useRef(calls);
+  /** Track callIds whose alerts have been dismissed so they don't re-pop */
+  const dismissedAlertCallIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     callsRef.current = calls;
@@ -75,6 +77,7 @@ export function useSignalOS(): SignalOSState {
         return next;
       });
       setActiveAlert((a) => (a?.callId === cmd.callId ? null : a));
+      dismissedAlertCallIds.current.delete(cmd.callId);
       delete nextPlayTimeRef.current[cmd.callId];
     }
 
@@ -179,11 +182,14 @@ export function useSignalOS(): SignalOSState {
             });
             return { ...prev, [alert.callId]: merged };
           });
-          const ts = alert.timestamp as Date | string;
-          setActiveAlert({
-            ...alert,
-            timestamp: ts instanceof Date ? ts : new Date(String(ts)),
-          });
+          // Don't re-show alerts that were already dismissed for this call
+          if (!dismissedAlertCallIds.current.has(alert.callId)) {
+            const ts = alert.timestamp as Date | string;
+            setActiveAlert({
+              ...alert,
+              timestamp: ts instanceof Date ? ts : new Date(String(ts)),
+            });
+          }
         } else if (message.type === "AUDIO_CHUNK") {
           const chunk = message.payload as AudioChunkPayload;
           playAudioChunk(chunk.callId, chunk.mimeType, chunk.data);
@@ -195,6 +201,7 @@ export function useSignalOS(): SignalOSState {
             return next;
           });
           setActiveAlert((a) => (a?.callId === callId ? null : a));
+          dismissedAlertCallIds.current.delete(callId);
           delete nextPlayTimeRef.current[callId];
         } else if (message.type === "SELECTION_UPDATE") {
           setSelectedCallId(message.payload.callId);
@@ -239,7 +246,10 @@ export function useSignalOS(): SignalOSState {
   }, [connect]);
 
   const dismissAlert = useCallback((): void => {
-    setActiveAlert(null);
+    setActiveAlert((prev) => {
+      if (prev) dismissedAlertCallIds.current.add(prev.callId);
+      return null;
+    });
   }, []);
 
   return {
