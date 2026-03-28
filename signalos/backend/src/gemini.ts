@@ -16,6 +16,20 @@ const SYSTEM_PROMPT: string = fs
   .readFileSync(path.join(__dirname, "..", "prompts", "systemPrompt.txt"), "utf-8")
   .trim();
 
+/** Avoid megabyte base64 lines in Railway logs; structure is preserved. */
+function jsonStringifyForDebug(value: unknown): string {
+  return JSON.stringify(
+    value,
+    (_key, val) => {
+      if (typeof val === "string" && val.length > 2000) {
+        return `${val.slice(0, 160)}… [truncated, ${val.length} chars total]`;
+      }
+      return val;
+    },
+    2
+  );
+}
+
 // ─── Outbound message types ───────────────────────────────────────────────────
 
 interface FunctionParameter {
@@ -170,6 +184,7 @@ class GeminiLiveSession {
             outputAudioTranscription: {},
           },
         };
+        console.log("[Gemini] Setup message:", JSON.stringify(setup, null, 2));
         this.send(setup);
       });
 
@@ -184,6 +199,8 @@ class GeminiLiveSession {
           return;
         }
 
+        console.log("[Gemini] Raw response:", jsonStringifyForDebug(parsed));
+
         // Setup handshake
         if (!this.setupComplete) {
           if ("setupComplete" in parsed) {
@@ -191,10 +208,6 @@ class GeminiLiveSession {
             resolve();
             return;
           }
-          console.warn(
-            "[Gemini] Message before setupComplete:",
-            JSON.stringify(parsed).slice(0, 800)
-          );
           return;
         }
 
