@@ -88,10 +88,10 @@ export default function NearestPolice() {
             }}
           >
             <p className="font-bold text-[16px] text-black tracking-tight">
-              {officer.code}
+              {officer.name}
             </p>
             <p className="text-[13px] text-neutral-500 mt-0.5">
-              Officer ID: #{officer.officer_id}
+              {officer.code} · #{officer.officer_id}
             </p>
           </div>
 
