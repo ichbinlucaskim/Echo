@@ -2,8 +2,10 @@ import http from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { IncomingMessage } from "http";
 import dotenv from "dotenv";
-import { addDashboardClient, getDashboardClientCount } from "./broadcaster";
-import { createSession, deleteSession } from "./stateManager";
+import { addDashboardClient, getDashboardClientCount, broadcast } from "./broadcaster";
+import { createSession, deleteSession, appendTranscript } from "./stateManager";
+import { openGeminiSession, sendAudioToGemini, closeGeminiSession, GeminiResponse } from "./gemini";
+import { twilioChunkToGeminiAudio } from "./utils/transcode";
 
 dotenv.config();
 
@@ -41,6 +43,24 @@ httpServer.on(
     }
   }
 );
+
+// ─── Gemini response handler ──────────────────────────────────────────────────
+
+function onGeminiResponse(callId: string, response: GeminiResponse): void {
+  if (response.type === "text") {
+    console.log(`[Gemini→State] Text for callId: ${callId} — "${response.text}"`);
+    const updated = appendTranscript(callId, response.text);
+    if (updated) {
+      broadcast({ type: "STATE_UPDATE", payload: updated });
+    }
+  } else if (response.type === "functionCall") {
+    // Sprint 3: handle triggerAlert function call here
+    console.log(
+      `[Gemini→State] Function call for callId: ${callId} — ${response.name}`,
+      response.args
+    );
+  }
+}
 
 // ─── Twilio Media Stream message types ───────────────────────────────────────
 
@@ -127,23 +147,32 @@ twilioWss.on("connection", (ws: WebSocket) => {
           `[Twilio] Stream started — callId: ${callId} | streamSid: ${message.streamSid} | encoding: ${message.start.mediaFormat.encoding} @ ${message.start.mediaFormat.sampleRate}Hz`
         );
         createSession(callId);
+        openGeminiSession(callId, onGeminiResponse).catch((err: Error) => {
+          console.error(`[Gemini] Failed to open session for callId: ${callId} — ${err.message}`);
+        });
         break;
 
-      case "media":
+      case "media": {
+        if (!callId) break;
+
         if (!firstChunkLogged) {
           console.log(
             `[Twilio] First audio chunk received — callId: ${callId} | payload length: ${message.media.payload.length} bytes (base64 μ-law 8kHz) | chunk: ${message.media.chunk}`
           );
           firstChunkLogged = true;
         }
-        // Sprint 2: decode + transcode + pipe to GeminiLiveSession here
+
+        const pcm16k = twilioChunkToGeminiAudio(message.media.payload);
+        sendAudioToGemini(callId, pcm16k);
         break;
+      }
 
       case "stop":
         console.log(
           `[Twilio] Stream stopped — callId: ${callId ?? message.stop.callSid}`
         );
         if (callId) {
+          closeGeminiSession(callId);
           deleteSession(callId);
           callId = null;
         }
@@ -154,6 +183,7 @@ twilioWss.on("connection", (ws: WebSocket) => {
   ws.on("close", () => {
     console.log(`[Twilio] Connection closed — callId: ${callId ?? "unknown"}`);
     if (callId) {
+      closeGeminiSession(callId);
       deleteSession(callId);
       callId = null;
     }

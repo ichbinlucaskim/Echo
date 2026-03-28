@@ -8,6 +8,8 @@ const GEMINI_LIVE_WS_URL =
 
 const GEMINI_MODEL = "models/gemini-2.0-flash-live-001";
 
+// ─── Outbound message types ───────────────────────────────────────────────────
+
 interface GeminiSetupMessage {
   setup: {
     model: string;
@@ -28,13 +30,57 @@ interface GeminiRealtimeInput {
 
 type GeminiOutboundMessage = GeminiSetupMessage | GeminiRealtimeInput;
 
-export class GeminiLiveSession {
+// ─── Inbound response types ───────────────────────────────────────────────────
+
+interface GeminiTextPart {
+  text: string;
+}
+
+interface GeminiFunctionCallPart {
+  functionCall: {
+    name: string;
+    args: Record<string, unknown>;
+  };
+}
+
+type GeminiPart = GeminiTextPart | GeminiFunctionCallPart;
+
+interface GeminiServerMessage {
+  serverContent?: {
+    modelTurn?: {
+      parts: GeminiPart[];
+    };
+    turnComplete?: boolean;
+  };
+}
+
+// ─── Parsed response passed to callers ───────────────────────────────────────
+
+export interface GeminiTextResponse {
+  type: "text";
+  text: string;
+}
+
+export interface GeminiFunctionCallResponse {
+  type: "functionCall";
+  name: string;
+  args: Record<string, unknown>;
+}
+
+export type GeminiResponse = GeminiTextResponse | GeminiFunctionCallResponse;
+
+// ─── Low-level session (one per callId) ──────────────────────────────────────
+
+class GeminiLiveSession {
   private ws: WebSocket | null = null;
   private readonly apiKey: string;
-  private readonly onResponse: (raw: string) => void;
+  private readonly onResponse: (response: GeminiResponse) => void;
   private setupComplete = false;
 
-  constructor(apiKey: string, onResponse: (raw: string) => void) {
+  constructor(
+    apiKey: string,
+    onResponse: (response: GeminiResponse) => void
+  ) {
     this.apiKey = apiKey;
     this.onResponse = onResponse;
   }
@@ -45,7 +91,6 @@ export class GeminiLiveSession {
       this.ws = new WebSocket(url);
 
       this.ws.on("open", () => {
-        console.log("[Gemini] WebSocket connection opened — sending setup");
         const setup: GeminiSetupMessage = {
           setup: {
             model: GEMINI_MODEL,
@@ -64,18 +109,32 @@ export class GeminiLiveSession {
         try {
           parsed = JSON.parse(text) as Record<string, unknown>;
         } catch {
-          console.warn("[Gemini] Non-JSON message received:", text);
+          console.warn("[Gemini] Non-JSON message:", text.slice(0, 120));
           return;
         }
 
+        // Setup handshake
         if (!this.setupComplete && "setupComplete" in parsed) {
-          console.log("[Gemini] Setup acknowledged — session ready to accept audio");
           this.setupComplete = true;
           resolve();
           return;
         }
 
-        this.onResponse(text);
+        // Content response
+        const msg = parsed as GeminiServerMessage;
+        const parts = msg.serverContent?.modelTurn?.parts ?? [];
+
+        for (const part of parts) {
+          if ("text" in part && typeof part.text === "string" && part.text.trim()) {
+            this.onResponse({ type: "text", text: part.text });
+          } else if ("functionCall" in part) {
+            this.onResponse({
+              type: "functionCall",
+              name: part.functionCall.name,
+              args: part.functionCall.args,
+            });
+          }
+        }
       });
 
       this.ws.on("error", (err: Error) => {
@@ -91,10 +150,7 @@ export class GeminiLiveSession {
   }
 
   sendAudio(pcm16kBuffer: Buffer): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.warn("[Gemini] Cannot send audio — session not open");
-      return;
-    }
+    if (!this.isReady()) return;
 
     const message: GeminiRealtimeInput = {
       realtimeInput: {
@@ -125,4 +181,55 @@ export class GeminiLiveSession {
       this.ws.send(JSON.stringify(message));
     }
   }
+}
+
+// ─── Session manager (module-level, one session per callId) ──────────────────
+
+const activeSessions = new Map<string, GeminiLiveSession>();
+
+export async function openGeminiSession(
+  callId: string,
+  onResponse: (callId: string, response: GeminiResponse) => void
+): Promise<void> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("[Gemini] GEMINI_API_KEY is not set");
+
+  if (activeSessions.has(callId)) {
+    console.warn(`[Gemini] Session already exists for callId: ${callId} — skipping`);
+    return;
+  }
+
+  const session = new GeminiLiveSession(apiKey, (response) => {
+    onResponse(callId, response);
+  });
+
+  activeSessions.set(callId, session);
+
+  await session.open();
+  console.log(
+    `[Gemini] Session opened — callId: ${callId} | active sessions: ${activeSessions.size}`
+  );
+}
+
+export function sendAudioToGemini(callId: string, pcm16kBuffer: Buffer): void {
+  const session = activeSessions.get(callId);
+  if (!session) {
+    console.warn(`[Gemini] No session for callId: ${callId}`);
+    return;
+  }
+  session.sendAudio(pcm16kBuffer);
+}
+
+export function closeGeminiSession(callId: string): void {
+  const session = activeSessions.get(callId);
+  if (!session) return;
+  session.close();
+  activeSessions.delete(callId);
+  console.log(
+    `[Gemini] Session closed — callId: ${callId} | active sessions: ${activeSessions.size}`
+  );
+}
+
+export function getActiveSessionCount(): number {
+  return activeSessions.size;
 }
