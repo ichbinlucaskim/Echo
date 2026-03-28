@@ -159,35 +159,41 @@ export default function ActiveCallSession() {
         </div>
       </header>
 
-      {/* Main: dispatch | waveform | category+transcript */}
-      <div className="flex-1 flex flex-col min-h-0 px-5 md:px-8 pb-6">
+      {/* Main: grid fills space down to the control row; side columns stretch with the center */}
+      <div className="flex-1 flex flex-col min-h-0 px-5 md:px-8 pb-4">
         <div
-          className="flex-1 grid min-h-0 gap-6 md:gap-8 grid-cols-1 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,300px)] lg:items-stretch lg:grid-rows-1 auto-rows-min"
+          className="flex-1 min-h-0 grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)_minmax(0,380px)] lg:grid-rows-1 lg:items-stretch lg:gap-8"
         >
-          {/* Left: Nearest Police */}
+          {/* Left: Nearest Police — full height to bottom of grid (above buttons) */}
           <section
-            className={`order-2 lg:order-1 ${cardRadius} bg-white p-5 md:p-6 flex flex-col shadow-none border-0`}
+            className={`order-2 lg:order-1 ${cardRadius} bg-white p-5 md:p-6 flex flex-col min-h-[260px] lg:min-h-0 h-full border border-gray-200 shadow-sm`}
           >
             <NearestPolice />
           </section>
 
-          {/* Center: waveform */}
-          <div className="order-1 lg:order-2 flex flex-col items-center justify-center min-h-[160px] lg:min-h-0 py-2 lg:py-8">
-            <AudioWaveform paused={waveformPaused} />
-            {(muted || onHold) && (
-              <p className="mt-3 text-xs text-white/45 tracking-wide text-center max-w-xs">
-                {[onHold && "On hold", muted && "Monitoring muted"]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-            )}
+          {/* Center: waveform — larger, centered, full outline */}
+          <div className="order-1 lg:order-2 flex min-h-[200px] lg:min-h-0 h-full">
+            <div
+              className={`flex flex-1 flex-col items-center justify-center w-full ${cardRadius} border border-white/20 bg-white/[0.04] px-4 py-6 md:px-8 md:py-10`}
+            >
+              <AudioWaveform paused={waveformPaused} />
+              {(muted || onHold) && (
+                <p className="mt-4 text-xs text-white/45 tracking-wide text-center max-w-xs">
+                  {[onHold && "On hold", muted && "Monitoring muted"]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Right: Category + Transcript */}
-          <div className="order-3 flex flex-col gap-4 min-h-0 lg:min-h-0">
+          {/* Right: Category + Live Transcript — stack grows to fill column */}
+          <div className="order-3 flex h-full min-h-[320px] flex-col gap-4 lg:min-h-0 lg:flex-1">
             <section
-              className={`${cardRadius} bg-white p-5 md:p-6 shrink-0 border-t-[3px]`}
-              style={{ borderTopColor: highSeverity ? C.alertRed : categoryColor }}
+              className={`${cardRadius} bg-white p-5 md:p-6 shrink-0 border-2 shadow-sm`}
+              style={{
+                borderColor: highSeverity ? C.alertRed : categoryColor,
+              }}
             >
               <h3 className="font-bold text-[17px] text-black mb-3 tracking-tight">
                 Category
@@ -206,7 +212,7 @@ export default function ActiveCallSession() {
             </section>
 
             <section
-              className={`${cardRadius} bg-white p-5 md:p-6 flex-1 flex flex-col min-h-[220px] lg:min-h-0 lg:max-h-[min(52vh,420px)]`}
+              className={`${cardRadius} bg-white p-5 md:p-6 flex-1 flex flex-col min-h-0 border border-gray-200 shadow-sm`}
             >
               <h3 className="font-bold text-[17px] text-black mb-4 tracking-tight shrink-0">
                 Live Transcript
@@ -239,8 +245,8 @@ export default function ActiveCallSession() {
           </div>
         </div>
 
-        {/* Bottom center: call controls */}
-        <div className="shrink-0 flex flex-col items-center gap-3 pt-8 md:pt-10">
+        {/* Bottom center: call controls (hold / mute / end) */}
+        <div className="shrink-0 flex flex-col items-center gap-3 pt-6 md:pt-8">
           {/* Route to Non-Emergency button */}
           {call.status !== "ROUTED" && (
             <button

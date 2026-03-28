@@ -5,8 +5,8 @@ import { useMemo } from "react";
 const BAR_COUNT = 9;
 
 /** Mock silhouette L→R: medium, tall, very tall, medium, tall, short, tall, medium, short */
-const BAR_HEIGHTS_PX = [72, 92, 108, 72, 88, 48, 84, 72, 48];
-const BAR_WIDTHS_PX = [9, 10, 11, 9, 10, 8, 10, 9, 8];
+const BAR_HEIGHTS_PX = [86, 110, 128, 86, 104, 58, 100, 86, 58];
+const BAR_WIDTHS_PX = [11, 12, 13, 11, 12, 10, 12, 11, 10];
 
 type AudioWaveformProps = {
   /** Pause animation when monitoring is muted or call is on hold. */
@@ -31,7 +31,7 @@ export default function AudioWaveform({ paused = false }: AudioWaveformProps) {
 
   return (
     <div
-      className={`flex items-end justify-center gap-[10px] md:gap-[14px] py-4 ${paused ? "waveform-paused" : ""}`}
+      className={`flex items-end justify-center gap-[12px] md:gap-[18px] py-2 md:py-3 w-full max-w-md mx-auto ${paused ? "waveform-paused" : ""}`}
       aria-hidden
     >
       {bars.map(({ i, height, width, duration, delay, minScale, maxScale }) => (
