@@ -136,7 +136,7 @@ export default function ActiveCallSession() {
         >
           {showAlertBar && (
             <div
-              className={`min-w-0 flex-1 ${cardRadius} border px-4 py-3.5 md:px-5 md:py-4 flex items-start gap-3`}
+              className={`min-w-0 flex-1 ${cardRadius} border px-4 py-3.5 md:px-5 md:py-4 flex items-start gap-3 md:gap-4`}
               style={{
                 borderColor: "rgba(139, 0, 0, 0.55)",
                 backgroundColor: "rgba(60, 10, 10, 0.35)",
@@ -146,21 +146,28 @@ export default function ActiveCallSession() {
                 className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full animate-pulse"
                 style={{ backgroundColor: C.alertRed }}
               />
-              <p className="min-w-0 text-[15px] md:text-base leading-relaxed">
-                <span className="font-bold" style={{ color: C.alertRed }}>
-                  Alert
+              <div className="flex min-w-0 flex-1 items-start gap-4 md:gap-8 lg:gap-10">
+                <span
+                  className="shrink-0 pt-0.5 text-[13px] font-bold tracking-[0.12em] md:text-sm"
+                  style={{ color: C.alertRed }}
+                >
+                  ALERT
                 </span>
-                <span className="text-white font-normal">
-                  {" "}
-                  {barName} needs attention. (Category: {barCategoryLabel})
+                <p className="min-w-0 flex-1 border-l border-white/20 pl-4 text-[15px] font-normal leading-relaxed text-white md:pl-6 md:text-base">
+                  <span className="font-medium text-white">
+                    {barName}
+                  </span>
+                  <span className="text-white/90">
+                    {" "}
+                    needs attention. (Category: {barCategoryLabel})
+                  </span>
                   {alertingCallId !== selectedCallId && (
-                    <span className="text-white/70">
-                      {" "}
-                      — you are on {name}
+                    <span className="mt-1.5 block text-[14px] leading-snug text-white/65 md:mt-2">
+                      You are speaking to {name}.
                     </span>
                   )}
-                </span>
-              </p>
+                </p>
+              </div>
             </div>
           )}
           <button
