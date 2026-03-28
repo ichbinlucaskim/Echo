@@ -40,37 +40,6 @@ const VALID_ANOMALY_TYPES: ReadonlySet<string> = new Set([
   "DISTRESS_SOUND",
 ]);
 
-// ─── Audio gate: only forward Gemini audio for calls with an urgent category ──
-// Audio chunks often arrive BEFORE the categorizeCall function call in the same
-// Gemini turn, so we buffer them while the gate is closed and flush when it opens.
-const ALERT_ELIGIBLE: ReadonlySet<string> = new Set([
-  "MEDICAL", "CRIME", "FIRE_HAZARD", "SILENT_DISTRESS",
-]);
-const audioGateOpen = new Set<string>();
-const pendingAudio = new Map<string, Array<{ mimeType: string; data: string }>>();
-
-function openAudioGate(callId: string): void {
-  audioGateOpen.add(callId);
-  console.log(`[AudioGate] Opened for callId: ${callId}`);
-  // Flush any audio that arrived before the gate opened
-  const buffered = pendingAudio.get(callId);
-  if (buffered && buffered.length > 0) {
-    console.log(`[AudioGate] Flushing ${buffered.length} buffered chunks for callId: ${callId}`);
-    for (const chunk of buffered) {
-      broadcast({
-        type: "AUDIO_CHUNK",
-        payload: { callId, mimeType: chunk.mimeType, data: chunk.data },
-      });
-    }
-  }
-  pendingAudio.delete(callId);
-}
-
-function closeAudioGate(callId: string): void {
-  audioGateOpen.delete(callId);
-  pendingAudio.delete(callId);
-}
-
 const CALLER_NAMES: Record<string, string> = {
   sim_call_1: "Monica Schmidt",
   sim_call_2: "James Anderson",
@@ -161,21 +130,35 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
     if (!session) return;
     if (session.muted || session.onHold) return;
 
-    if (audioGateOpen.has(callId)) {
-      // Gate is open — forward immediately
-      broadcast({
-        type: "AUDIO_CHUNK",
-        payload: { callId, mimeType: response.mimeType, data: response.data },
-      });
-    } else {
-      // Gate closed — buffer in case categorizeCall opens it shortly
-      let buf = pendingAudio.get(callId);
-      if (!buf) {
-        buf = [];
-        pendingAudio.set(callId, buf);
-      }
-      buf.push({ mimeType: response.mimeType, data: response.data });
+    const ALERT_ELIGIBLE: ReadonlySet<string> = new Set([
+      "MEDICAL", "CRIME", "FIRE_HAZARD", "SILENT_DISTRESS",
+    ]);
+    if (session.status !== "ALERT" && ALERT_ELIGIBLE.has(session.category)) {
+      console.log(`[ALERT] Gemini spoke audio for callId: ${callId} (category: ${session.category}) — triggering alert`);
+      const callerName = CALLER_NAMES[callId] ?? DEFAULT_CALLER_NAME;
+      const alertPayload: AlertPayload = {
+        callId,
+        anomalyType: "DISTRESS_SOUND",
+        confidence: 0.9,
+        transcript: session.transcript || `Gemini detected critical situation for ${callerName}`,
+        suggestedResponse: "Dispatcher attention required — Gemini flagged this call",
+        timestamp: new Date(),
+      };
+      markAlert(callId, alertPayload);
+      broadcast({ type: "STATE_UPDATE", payload: { ...session, status: "ALERT" } });
+      broadcast({ type: "ALERT", payload: alertPayload });
+    } else if (session.status !== "ALERT") {
+      console.log(`[Gemini] Audio ignored for callId: ${callId} — category "${session.category}" is not alert-eligible`);
     }
+
+    broadcast({
+      type: "AUDIO_CHUNK",
+      payload: {
+        callId,
+        mimeType: response.mimeType,
+        data: response.data,
+      },
+    });
     return;
   }
 
@@ -227,13 +210,6 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
       );
       if (updatedState) {
         broadcast({ type: "STATE_UPDATE", payload: updatedState });
-      }
-
-      // Open the audio gate so Gemini's "Urgent caller" speech gets through
-      if (ALERT_ELIGIBLE.has(category)) {
-        openAudioGate(callId);
-      } else {
-        closeAudioGate(callId);
       }
 
       // Auto-trigger alert for high-severity categories
@@ -466,7 +442,6 @@ twilioWss.on("connection", (ws: WebSocket) => {
           const endedSession = getSession(callId);
           if (endedSession) void saveCallLog(endedSession);
           closeGeminiSession(callId);
-          closeAudioGate(callId);
           deleteSession(callId);
           broadcast({ type: "CALL_ENDED", payload: { callId } });
           callId = null;
@@ -482,7 +457,6 @@ twilioWss.on("connection", (ws: WebSocket) => {
       const endedSession = getSession(ended);
       if (endedSession) void saveCallLog(endedSession);
       closeGeminiSession(ended);
-      closeAudioGate(ended);
       deleteSession(ended);
       broadcast({ type: "CALL_ENDED", payload: { callId: ended } });
       callId = null;
@@ -572,7 +546,6 @@ function handleDashboardCommand(raw: RawData): void {
         if (endedSession) await saveCallLog(endedSession);
         await hangupCall(cmd.callId);
         closeGeminiSession(cmd.callId);
-        closeAudioGate(cmd.callId);
         deleteSession(cmd.callId);
         broadcast({ type: "CALL_ENDED", payload: { callId: cmd.callId } });
         // Clear selection if the ended call was selected
