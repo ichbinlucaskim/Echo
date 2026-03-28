@@ -36,15 +36,33 @@ const CATEGORY_LABELS: Record<string, string> = {
   SILENT_DISTRESS: "Silent Distress",
 };
 
-function stressFromConfidence(
+/** Category severity weights — higher = more stressful. */
+const CATEGORY_SEVERITY: Record<string, number> = {
+  MONITORING: 0,
+  NON_EMERGENCY: 0.15,
+  TRAFFIC: 0.35,
+  MEDICAL: 0.55,
+  FIRE_HAZARD: 0.7,
+  CRIME: 0.8,
+  SILENT_DISTRESS: 0.9,
+};
+
+function computeStress(
+  category: string,
+  categoryConfidence: number,
   isAlert: boolean,
-  confidence: number | undefined
+  alertConfidence: number | undefined
 ): number {
-  if (isAlert && confidence != null) {
-    return Math.min(99, Math.round(confidence * 100));
+  // Alert overrides — use alert confidence directly
+  if (isAlert && alertConfidence != null) {
+    return Math.min(99, Math.round(alertConfidence * 100));
   }
   if (isAlert) return 80;
-  return 0;
+
+  // Category-based stress: severity × confidence
+  const severity = CATEGORY_SEVERITY[category] ?? 0;
+  if (severity === 0 || categoryConfidence === 0) return 0;
+  return Math.min(99, Math.round(severity * categoryConfidence * 100));
 }
 
 function stressLabel(pct: number): string {
@@ -80,7 +98,7 @@ export default function ActiveCallSession() {
   const categoryLabel = CATEGORY_LABELS[category] ?? category;
   const categorySummary = call?.categorySummary ?? "";
 
-  const stress = stressFromConfidence(isAlert, alertForCall?.confidence);
+  const stress = computeStress(category, call?.categoryConfidence ?? 0, isAlert, alertForCall?.confidence);
   const stressText = stressLabel(stress);
 
   // Build transcript lines from real backend data

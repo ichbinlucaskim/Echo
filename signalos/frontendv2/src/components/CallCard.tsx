@@ -27,6 +27,23 @@ const CATEGORY_COLORS: Record<string, string> = {
   MONITORING: "bg-white/10 text-gray-500 border-white/10",
 };
 
+const CATEGORY_SEVERITY: Record<string, number> = {
+  MONITORING: 0,
+  NON_EMERGENCY: 0.15,
+  TRAFFIC: 0.35,
+  MEDICAL: 0.55,
+  FIRE_HAZARD: 0.7,
+  CRIME: 0.8,
+  SILENT_DISTRESS: 0.9,
+};
+
+function computeStress(category: string, categoryConfidence: number, isAlert: boolean): number {
+  if (isAlert) return 80;
+  const severity = CATEGORY_SEVERITY[category] ?? 0;
+  if (severity === 0 || categoryConfidence === 0) return 0;
+  return Math.min(99, Math.round(severity * categoryConfidence * 100));
+}
+
 function formatCategory(cat: string): string {
   return cat.replace(/_/g, " ");
 }
@@ -41,6 +58,8 @@ export default function CallCard({ call }: CallCardProps) {
   const isSelected = selectedCallId === call.callId;
   const name = MOCK_NAMES[call.callId] || DEFAULT_NAME;
   const category = call.category ?? "MONITORING";
+  const stress = computeStress(category, call.categoryConfidence ?? 0, isAlert);
+  const isHighStress = stress >= 45;
 
   useEffect(() => {
     const start = new Date(call.startedAt);
@@ -59,8 +78,12 @@ export default function CallCard({ call }: CallCardProps) {
   let ringColor = "border-[#1c447a] bg-[#0d1f3b]/30 text-[#4c90f0]";
   let selectionAccent = "";
 
-  if (isAlert) {
+  if (isAlert || isHighStress) {
     ringColor = "border-red-600 bg-red-900/30 text-red-500";
+    if (isSelected) {
+      selectionAccent =
+        "ring-2 ring-red-500/85 ring-offset-2 ring-offset-[#151517]";
+    }
   } else if (isOnHold) {
     ringColor =
       "border-amber-500/90 bg-amber-950/35 text-amber-200 shadow-[0_0_0_1px_rgba(245,158,11,0.35)]";

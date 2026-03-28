@@ -175,7 +175,8 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
       const updatedState = updateCategory(
         callId,
         category as CallCategory,
-        summary
+        summary,
+        confidence
       );
       if (updatedState) {
         broadcast({ type: "STATE_UPDATE", payload: updatedState });

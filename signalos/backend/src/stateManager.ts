@@ -21,6 +21,7 @@ export function createSession(callId: string): CallState {
     startedAt: new Date(),
     category: "MONITORING",
     categorySummary: "",
+    categoryConfidence: 0,
     muted: false,
     onHold: false,
   };
@@ -86,11 +87,12 @@ export function markAlert(
 export function updateCategory(
   callId: string,
   category: CallCategory,
-  categorySummary: string
+  categorySummary: string,
+  categoryConfidence: number
 ): CallState | null {
   const existing = sessions.get(callId);
   if (!existing) return null;
-  const updated: CallState = { ...existing, category, categorySummary };
+  const updated: CallState = { ...existing, category, categorySummary, categoryConfidence };
   sessions.set(callId, updated);
   return updated;
 }

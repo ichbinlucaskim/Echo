@@ -21,6 +21,7 @@ function normalizeCallState(raw: CallState): CallState {
     startedAt: started,
     category: raw.category ?? "MONITORING",
     categorySummary: raw.categorySummary ?? "",
+    categoryConfidence: raw.categoryConfidence ?? 0,
     muted: raw.muted ?? false,
     onHold: raw.onHold ?? false,
   };
@@ -34,6 +35,7 @@ function defaultCallBase(callId: string): CallState {
     status: "ACTIVE",
     category: "MONITORING",
     categorySummary: "",
+    categoryConfidence: 0,
     muted: false,
     onHold: false,
   };

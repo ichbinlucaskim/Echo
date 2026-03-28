@@ -16,6 +16,7 @@ export interface CallState {
   startedAt: Date;
   category: CallCategory;
   categorySummary: string;
+  categoryConfidence: number;
   muted: boolean;
   onHold: boolean;
 }

@@ -16,6 +16,8 @@ export interface CallState {
   startedAt: Date;
   category: CallCategory;
   categorySummary: string;
+  /** Confidence from Gemini's categorizeCall (0–1). Used to derive stress level. */
+  categoryConfidence: number;
   /** When true, inbound audio is not sent to Gemini; AI audio is not sent to dashboard. */
   muted: boolean;
   /** When true, same processing pause as mute; status may be ON-HOLD. Optional Twilio redirect if env URLs set. */

@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import AlertPopup from "../components/AlertPopup";
 import BottomNav from "../components/BottomNav";
 import Sidebar from "../components/Sidebar";
 
@@ -14,6 +15,7 @@ export default function Home() {
     <main className="relative w-screen h-screen overflow-hidden bg-black font-sans antialiased text-white selection:bg-red-500/30">
       <MapBackground />
       <Sidebar />
+      <AlertPopup />
       <BottomNav />
     </main>
   );
