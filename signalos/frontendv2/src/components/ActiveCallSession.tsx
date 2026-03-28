@@ -162,7 +162,8 @@ export default function ActiveCallSession() {
                     needs attention. (Category: {barCategoryLabel})
                   </span>
                   {alertingCallId !== selectedCallId && (
-                    <span className="mt-1.5 block text-[14px] leading-snug text-white/65 md:mt-2">
+                    <span className="text-white/55">
+                      {" · "}
                       You are speaking to {name}.
                     </span>
                   )}
