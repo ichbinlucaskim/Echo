@@ -11,11 +11,9 @@ const GEMINI_LIVE_WS_URL =
 const GEMINI_MODEL = "models/gemini-3.1-flash-live-preview";
 
 // Load system prompt once at startup
+// Resolved from dist/ or src/ → backend/prompts (must ship with the service; Railway root is signalos/backend only)
 const SYSTEM_PROMPT: string = fs
-  .readFileSync(
-    path.resolve(__dirname, "../../prompts/systemPrompt.txt"),
-    "utf-8"
-  )
+  .readFileSync(path.join(__dirname, "..", "prompts", "systemPrompt.txt"), "utf-8")
   .trim();
 
 // ─── Outbound message types ───────────────────────────────────────────────────
