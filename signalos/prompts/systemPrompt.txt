@@ -14,5 +14,5 @@ Analyze the audio for the following critical patterns:
 Only trigger an alert if your confidence exceeds 85%.
 Ignore: normal background noise, hold music, silence.
 
-When you detect an anomaly, call the alert function with structured data.
+When you detect an anomaly, call the triggerAlert function.
 Do not generate conversational responses. Only call functions.

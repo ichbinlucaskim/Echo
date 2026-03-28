@@ -3,13 +3,27 @@ import { WebSocketServer, WebSocket, RawData } from "ws";
 import { IncomingMessage } from "http";
 import dotenv from "dotenv";
 import { addDashboardClient, getDashboardClientCount, broadcast } from "./broadcaster";
-import { createSession, deleteSession, appendTranscript } from "./stateManager";
-import { openGeminiSession, sendAudioToGemini, closeGeminiSession, GeminiResponse } from "./gemini";
+import { createSession, deleteSession, appendTranscript, markAlert } from "./stateManager";
+import {
+  openGeminiSession,
+  sendAudioToGemini,
+  closeGeminiSession,
+  getActiveSessionCount,
+  GeminiResponse,
+} from "./gemini";
 import { twilioChunkToGeminiAudio } from "./utils/transcode";
+import { AlertPayload, AnomalyType } from "./types";
 
 dotenv.config();
 
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
+const MAX_SESSIONS = 6;
+const CONFIDENCE_THRESHOLD = 0.85;
+const VALID_ANOMALY_TYPES: ReadonlySet<string> = new Set([
+  "WHISPER",
+  "STROKE",
+  "DISTRESS_SOUND",
+]);
 
 // ─── HTTP server (required by Railway health checks) ─────────────────────────
 
@@ -53,12 +67,58 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
     if (updated) {
       broadcast({ type: "STATE_UPDATE", payload: updated });
     }
-  } else if (response.type === "functionCall") {
-    // Sprint 3: handle triggerAlert function call here
+    return;
+  }
+
+  if (response.type === "functionCall") {
+    if (response.name !== "triggerAlert") {
+      console.warn(
+        `[Alert] Unknown function call: ${response.name} for callId: ${callId} — ignoring`
+      );
+      return;
+    }
+
+    const { anomalyType, confidence, transcript, suggestedResponse } =
+      response.args;
+
+    // Runtime type guards — args arrive as Record<string, unknown>
+    if (
+      typeof anomalyType !== "string" ||
+      !VALID_ANOMALY_TYPES.has(anomalyType) ||
+      typeof confidence !== "number" ||
+      typeof transcript !== "string" ||
+      typeof suggestedResponse !== "string"
+    ) {
+      console.warn(
+        `[Alert] Invalid triggerAlert args for callId: ${callId}`,
+        response.args
+      );
+      return;
+    }
+
+    // Belt-and-suspenders confidence guard (system prompt also enforces 85%)
+    if (confidence < CONFIDENCE_THRESHOLD) {
+      console.warn(
+        `[Alert] triggerAlert confidence too low (${(confidence * 100).toFixed(0)}%) for callId: ${callId} — ignoring`
+      );
+      return;
+    }
+
+    const alertPayload: AlertPayload = {
+      callId,
+      anomalyType: anomalyType as AnomalyType,
+      confidence,
+      transcript,
+      suggestedResponse,
+      timestamp: new Date(),
+    };
+
     console.log(
-      `[Gemini→State] Function call for callId: ${callId} — ${response.name}`,
-      response.args
+      `[ALERT] triggerAlert fired — callId: ${callId} | type: ${anomalyType} | confidence: ${(confidence * 100).toFixed(0)}% | transcript: "${transcript}"`
     );
+
+    markAlert(callId, alertPayload);
+    broadcast({ type: "ALERT", payload: alertPayload });
   }
 }
 
@@ -119,6 +179,16 @@ type TwilioMessage =
 // ─── Twilio /twilio handler ──────────────────────────────────────────────────
 
 twilioWss.on("connection", (ws: WebSocket) => {
+  // Session limit guard — reject if already at capacity
+  const currentSessions = getActiveSessionCount();
+  if (currentSessions >= MAX_SESSIONS) {
+    console.warn(
+      `[Twilio] Session limit reached (${currentSessions}/${MAX_SESSIONS}) — rejecting connection`
+    );
+    ws.close(1008, "Session limit reached");
+    return;
+  }
+
   let callId: string | null = null;
   let firstChunkLogged = false;
 
@@ -128,7 +198,10 @@ twilioWss.on("connection", (ws: WebSocket) => {
     let message: TwilioMessage;
 
     try {
-      const text = typeof raw === "string" ? raw : Buffer.from(raw as ArrayBuffer).toString("utf-8");
+      const text =
+        typeof raw === "string"
+          ? raw
+          : Buffer.from(raw as ArrayBuffer).toString("utf-8");
       message = JSON.parse(text) as TwilioMessage;
     } catch (err) {
       console.error("[Twilio] Failed to parse message:", err);
@@ -149,7 +222,9 @@ twilioWss.on("connection", (ws: WebSocket) => {
         );
         createSession(callId);
         openGeminiSession(callId, onGeminiResponse).catch((err: Error) => {
-          console.error(`[Gemini] Failed to open session for callId: ${callId} — ${err.message}`);
+          console.error(
+            `[Gemini] Failed to open session for callId: ${callId} — ${err.message}`
+          );
         });
         break;
 
@@ -158,7 +233,9 @@ twilioWss.on("connection", (ws: WebSocket) => {
 
         const audioPayload: string | undefined = message.media?.payload;
         if (!audioPayload) {
-          console.warn(`[Twilio] Media event missing payload — callId: ${callId}`);
+          console.warn(
+            `[Twilio] Media event missing payload — callId: ${callId}`
+          );
           break;
         }
 
