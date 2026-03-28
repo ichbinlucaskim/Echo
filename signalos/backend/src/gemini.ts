@@ -1,4 +1,6 @@
 import WebSocket from "ws";
+import * as fs from "fs";
+import * as path from "path";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -8,16 +10,45 @@ const GEMINI_LIVE_WS_URL =
 
 const GEMINI_MODEL = "models/gemini-3.1-flash-live-preview";
 
+// Load system prompt once at startup
+const SYSTEM_PROMPT: string = fs
+  .readFileSync(
+    path.resolve(__dirname, "../../prompts/systemPrompt.txt"),
+    "utf-8"
+  )
+  .trim();
+
 // ─── Outbound message types ───────────────────────────────────────────────────
+
+interface FunctionParameter {
+  type: string;
+  enum?: string[];
+}
+
+interface FunctionDeclaration {
+  name: string;
+  description: string;
+  parameters: {
+    type: string;
+    properties: Record<string, FunctionParameter>;
+    required: string[];
+  };
+}
 
 interface GeminiSetupMessage {
   setup: {
     model: string;
+    systemInstruction?: {
+      parts: Array<{ text: string }>;
+    };
+    tools?: Array<{
+      functionDeclarations: FunctionDeclaration[];
+    }>;
     /** JSON uses camelCase per https://ai.google.dev/api/live */
     generationConfig?: {
       responseModalities: string[];
     };
-    /** gemini-3.1-flash-live-preview: enable text transcripts alongside native audio */
+    /** Enable text transcripts alongside native audio */
     inputAudioTranscription?: Record<string, never>;
     outputAudioTranscription?: Record<string, never>;
   };
@@ -34,6 +65,32 @@ interface GeminiRealtimeInput {
 }
 
 type GeminiOutboundMessage = GeminiSetupMessage | GeminiRealtimeInput;
+
+// ─── triggerAlert function declaration ───────────────────────────────────────
+
+const TRIGGER_ALERT_DECLARATION: FunctionDeclaration = {
+  name: "triggerAlert",
+  description: "Called when a critical anomaly is detected in the call audio",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      anomalyType: {
+        type: "STRING",
+        enum: ["WHISPER", "STROKE", "DISTRESS_SOUND"],
+      },
+      confidence: {
+        type: "NUMBER",
+      },
+      transcript: {
+        type: "STRING",
+      },
+      suggestedResponse: {
+        type: "STRING",
+      },
+    },
+    required: ["anomalyType", "confidence", "transcript", "suggestedResponse"],
+  },
+};
 
 // ─── Inbound response types ───────────────────────────────────────────────────
 
@@ -97,11 +154,17 @@ class GeminiLiveSession {
       this.ws = new WebSocket(url);
 
       this.ws.on("open", () => {
-        // 3.1 Flash Live is documented with AUDIO only; TEXT-only modality can 1011.
-        // See https://ai.google.dev/gemini-api/docs/live-guide (gemini-3.1-flash-live-preview).
         const setup: GeminiSetupMessage = {
           setup: {
             model: GEMINI_MODEL,
+            systemInstruction: {
+              parts: [{ text: SYSTEM_PROMPT }],
+            },
+            tools: [
+              {
+                functionDeclarations: [TRIGGER_ALERT_DECLARATION],
+              },
+            ],
             generationConfig: {
               responseModalities: ["AUDIO"],
             },
@@ -142,7 +205,11 @@ class GeminiLiveSession {
         const parts = msg.serverContent?.modelTurn?.parts ?? [];
 
         for (const part of parts) {
-          if ("text" in part && typeof part.text === "string" && part.text.trim()) {
+          if (
+            "text" in part &&
+            typeof part.text === "string" &&
+            part.text.trim()
+          ) {
             this.onResponse({ type: "text", text: part.text });
           } else if ("functionCall" in part) {
             this.onResponse({
@@ -220,7 +287,9 @@ export async function openGeminiSession(
   if (!apiKey) throw new Error("[Gemini] GEMINI_API_KEY is not set");
 
   if (activeSessions.has(callId)) {
-    console.warn(`[Gemini] Session already exists for callId: ${callId} — skipping`);
+    console.warn(
+      `[Gemini] Session already exists for callId: ${callId} — skipping`
+    );
     return;
   }
 
