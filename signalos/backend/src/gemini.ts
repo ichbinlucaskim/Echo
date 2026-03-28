@@ -13,15 +13,20 @@ const GEMINI_MODEL = "models/gemini-3.1-flash-live-preview";
 interface GeminiSetupMessage {
   setup: {
     model: string;
+    /** JSON uses camelCase per https://ai.google.dev/api/live */
+    generationConfig?: {
+      responseModalities: string[];
+    };
   };
 }
 
 interface GeminiRealtimeInput {
   realtimeInput: {
-    mediaChunks: Array<{
+    /** Prefer over deprecated mediaChunks */
+    audio: {
       mimeType: string;
       data: string;
-    }>;
+    };
   };
 }
 
@@ -92,6 +97,9 @@ class GeminiLiveSession {
         const setup: GeminiSetupMessage = {
           setup: {
             model: GEMINI_MODEL,
+            generationConfig: {
+              responseModalities: ["TEXT"],
+            },
           },
         };
         this.send(setup);
@@ -109,9 +117,16 @@ class GeminiLiveSession {
         }
 
         // Setup handshake
-        if (!this.setupComplete && "setupComplete" in parsed) {
-          this.setupComplete = true;
-          resolve();
+        if (!this.setupComplete) {
+          if ("setupComplete" in parsed) {
+            this.setupComplete = true;
+            resolve();
+            return;
+          }
+          console.warn(
+            "[Gemini] Message before setupComplete:",
+            JSON.stringify(parsed).slice(0, 800)
+          );
           return;
         }
 
@@ -137,8 +152,18 @@ class GeminiLiveSession {
         reject(err);
       });
 
-      this.ws.on("close", (code: number) => {
-        console.log(`[Gemini] WebSocket closed — code: ${code}`);
+      this.ws.on("close", (code: number, reason: Buffer) => {
+        const why = reason?.length ? reason.toString("utf8") : "";
+        console.log(
+          `[Gemini] WebSocket closed — code: ${code}${why ? ` reason: ${why}` : ""}`
+        );
+        if (!this.setupComplete) {
+          reject(
+            new Error(
+              `Gemini closed before setupComplete (code ${code})${why ? `: ${why}` : ""}`
+            )
+          );
+        }
         this.setupComplete = false;
       });
     });
@@ -149,12 +174,10 @@ class GeminiLiveSession {
 
     const message: GeminiRealtimeInput = {
       realtimeInput: {
-        mediaChunks: [
-          {
-            mimeType: "audio/pcm;rate=16000",
-            data: pcm16kBuffer.toString("base64"),
-          },
-        ],
+        audio: {
+          mimeType: "audio/pcm;rate=16000",
+          data: pcm16kBuffer.toString("base64"),
+        },
       },
     };
 
