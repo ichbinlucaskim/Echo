@@ -155,14 +155,20 @@ twilioWss.on("connection", (ws: WebSocket) => {
       case "media": {
         if (!callId) break;
 
+        const audioPayload: string | undefined = message.media?.payload;
+        if (!audioPayload) {
+          console.warn(`[Twilio] Media event missing payload — callId: ${callId}`);
+          break;
+        }
+
         if (!firstChunkLogged) {
           console.log(
-            `[Twilio] First audio chunk received — callId: ${callId} | payload length: ${message.media.payload.length} bytes (base64 μ-law 8kHz) | chunk: ${message.media.chunk}`
+            `[Twilio] First audio chunk received — callId: ${callId} | payload length: ${audioPayload.length} bytes (base64 μ-law 8kHz) | chunk: ${message.media.chunk}`
           );
           firstChunkLogged = true;
         }
 
-        const pcm16k = twilioChunkToGeminiAudio(message.media.payload);
+        const pcm16k = twilioChunkToGeminiAudio(audioPayload);
         sendAudioToGemini(callId, pcm16k);
         break;
       }
