@@ -63,7 +63,7 @@ SignalOS connects to every on-hold line simultaneously and streams audio to Gemi
                         │   POST /route-non-emergency ────────┘                │
                         └──────────────────────────────────────┼───────────────┘
                                                                │
-                                       ┌───────────────────────▼───────────────-───┐
+                                       ┌───────────────────────▼───────────────────┐
                                        │              Vercel (Frontend)            │
                                        │                                           │
                                        │  useSignalOS() hook (auto-reconnect 3s)   │
@@ -78,11 +78,17 @@ SignalOS connects to every on-hold line simultaneously and streams audio to Gemi
 
 1. Twilio sends `media` event — base64 μ-law 8kHz, 160 bytes
 2. `transcode.ts` decodes μ-law → PCM 16-bit, upsamples 8kHz → 16kHz
-3. PCM buffer forwarded to Gemini as `realtimeInput.audio` (`audio/pcm;rate=16000`)
-4. Gemini returns text transcription and/or function calls
+3. PCM buffer forwarded to Gemini as `realtimeInput.audio` (`audio/pcm;rate=16000`) via `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent`
+4. Gemini (`gemini-3.1-flash-live-preview`) returns text transcription and/or function calls
 5. `triggerAlert` → `markAlert()` + `broadcast({ type: "ALERT" })`
 6. `categorizeCall` → `updateCategory()` + `broadcast({ type: "STATE_UPDATE" })`
-7. `SILENT_DISTRESS` category → both paths fire: state update + alert banner
+7. High-severity categories (SILENT_DISTRESS, CRIME, FIRE_HAZARD, MEDICAL) also fire an ALERT broadcast — dual detection path independent of `triggerAlert`
+
+**End-of-call:** On Twilio `stop` event, `callLogger.ts` calls `saveCallLog()` — persists transcript, caller name, and phone number to Supabase `call_logs`. Runs fire-and-forget (`void`); missing env vars disable logging gracefully without crashing the session.
+
+**Non-emergency routing:** `POST /route-non-emergency` sets a call's status to `ROUTED` and broadcasts a STATE_UPDATE, removing it from active monitoring.
+
+**Simulator** — `npm run simulate` opens 4 concurrent streams (sim_call_1 through sim_call_4) using real WAV files at 8kHz: normal_call_1.wav, normal_call_2.wav, distress_test.wav, whisper_test.wav. Each stream sends 160-byte chunks at 20ms cadence with a 200ms stagger between starts.
 
 ---
 
@@ -96,6 +102,7 @@ SignalOS connects to every on-hold line simultaneously and streams audio to Gemi
 | Telephony | Twilio Media Streams (`<Stream>` TwiML verb) |
 | Backend | Node.js 20 · TypeScript 5 · `ws` WebSocket library |
 | Frontend | Next.js 14 App Router · TypeScript · Tailwind CSS |
+| Database | Supabase — `call_logs` table (call history) · `officers` table with realtime (frontendv2 map) |
 | Backend hosting | Railway |
 | Frontend hosting | Vercel |
 
@@ -131,12 +138,12 @@ Fires exactly once per session after 15–20 seconds of audio.
 
 | Category | Badge | Description |
 |---|---|---|
-| `SILENT_DISTRESS` | Purple · pulsing | Caller whispering, tapping, slurring, or otherwise unable to speak freely. **Triggers AlertBanner identical to `triggerAlert`.** |
-| `MEDICAL` | Orange | Heart attack, injury, unconscious caller |
-| `TRAFFIC` | Blue | Vehicle accident, road hazard |
+| `SILENT_DISTRESS` | Red | Caller whispering, tapping, slurring, or otherwise unable to speak freely. **Triggers AlertBanner identical to `triggerAlert`.** |
+| `MEDICAL` | Red | Heart attack, injury, unconscious caller |
+| `TRAFFIC` | Red | Vehicle accident, road hazard |
 | `FIRE_HAZARD` | Red | Fire, gas leak, hazardous material |
 | `CRIME` | Red | Robbery, assault, active threat |
-| `NON_EMERGENCY` | Green | Non-urgent — routable to non-emergency line |
+| `NON_EMERGENCY` | Gray | Non-urgent — routable to non-emergency line |
 | `MONITORING` | Gray | Initial state; still analyzing |
 
 ---
@@ -165,6 +172,7 @@ Fires exactly once per session after 15–20 seconds of audio.
 - TypeScript 5+
 - Twilio account with a purchased US phone number
 - Google AI Studio API key with Gemini Live API access
+- Supabase project (free tier works)
 - Railway account
 - Vercel account
 
@@ -175,11 +183,20 @@ Fires exactly once per session after 15–20 seconds of audio.
 GEMINI_API_KEY=your_key_here
 TWILIO_AUTH_TOKEN=your_token_here
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your_service_role_key_here
 PORT=3001
 ```
 
 `signalos/frontend/.env.local`:
 ```
+NEXT_PUBLIC_BACKEND_URL=wss://your-app.up.railway.app
+```
+
+`signalos/frontendv2/.env.local` (map dashboard):
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 NEXT_PUBLIC_BACKEND_URL=wss://your-app.up.railway.app
 ```
 
@@ -200,17 +217,36 @@ npm install
 npm run dev
 # http://localhost:3000
 
-# Simulator — 5 concurrent fake streams with real audio files
+# Simulator — 4 concurrent fake streams with real audio files
 cd signalos/backend
 npm run simulate
-# [Simulator] Starting 5 simulated streams → ws://localhost:3001/twilio
-# [Simulator] Stream running — callId: sim_call_1 | 1/5 active
+# [Simulator] Starting 4 simulated streams → ws://localhost:3001/twilio
+# [Simulator] Stream running — callId: sim_call_1 | 1/4 active
 # ...
 ```
 
 ---
 
 ## Deployment
+
+### Supabase
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Open **SQL Editor** and run `signalos/supabase-schema.sql` — creates the `officers` table with realtime enabled
+3. Create the `call_logs` table manually in SQL Editor:
+```sql
+create table if not exists call_logs (
+  id           uuid primary key default gen_random_uuid(),
+  caller_name  text not null,
+  phone_number text not null,
+  transcript   text not null default '',
+  created_at   timestamptz not null default now()
+);
+```
+4. Copy your project URL and keys from **Settings → API**:
+   - `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL` — Project URL
+   - `SUPABASE_SERVICE_KEY` — service_role secret (backend only — never expose client-side)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — anon/public key (frontendv2 only)
 
 ### Backend — Railway
 
@@ -223,6 +259,8 @@ npm run simulate
 | `GEMINI_API_KEY` | from Google AI Studio |
 | `TWILIO_AUTH_TOKEN` | from Twilio Console |
 | `TWILIO_ACCOUNT_SID` | from Twilio Console |
+| `SUPABASE_URL` | from Supabase → Settings → API |
+| `SUPABASE_SERVICE_KEY` | service_role key from Supabase → Settings → API |
 | `PORT` | leave blank — Railway injects automatically |
 
 4. Railway → Settings → Networking → **Generate Domain**
@@ -275,7 +313,8 @@ signalos/
 │   │   ├── gemini.ts          # Gemini Live session management
 │   │   ├── stateManager.ts    # Per-call in-memory state
 │   │   ├── broadcaster.ts     # Dashboard WebSocket broadcast
-│   │   ├── simulator.ts       # 5-stream fake audio simulator
+│   │   ├── callLogger.ts      # Supabase call_logs persistence
+│   │   ├── simulator.ts       # 4-stream fake audio simulator
 │   │   ├── types/index.ts     # Shared type definitions
 │   │   └── utils/transcode.ts # μ-law 8kHz → PCM 16kHz
 │   ├── prompts/
@@ -295,8 +334,13 @@ signalos/
 │       ├── components/
 │       │   ├── CallCard.tsx
 │       │   ├── GoogleMapBackground.tsx
-│       │   └── Sidebar.tsx
-│       └── lib/socket.ts
+│       │   ├── Sidebar.tsx
+│       │   ├── DispatchList.tsx
+│       │   ├── AnalyticsPanel.tsx
+│       │   └── NearestPolice.tsx
+│       └── lib/
+│           ├── socket.ts
+│           └── supabase.ts    # Supabase client (officers realtime)
 └── audio/
     └── samples/               # 8kHz mono WAV files for simulator
         ├── normal_call_1.wav
