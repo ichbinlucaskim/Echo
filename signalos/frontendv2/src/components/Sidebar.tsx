@@ -5,6 +5,7 @@ import CallCard from "./CallCard";
 import { useSignalOSContext } from "../context/SignalOSContext";
 
 const EMERGENCY_CATEGORIES = new Set([
+  "MONITORING",
   "MEDICAL",
   "TRAFFIC",
   "FIRE_HAZARD",
