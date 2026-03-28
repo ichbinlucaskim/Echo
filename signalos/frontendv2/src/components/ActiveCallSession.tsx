@@ -164,21 +164,19 @@ export default function ActiveCallSession() {
         <div
           className="flex-1 min-h-0 grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)_minmax(0,380px)] lg:grid-rows-1 lg:items-stretch lg:gap-8"
         >
-          {/* Left: Nearest Police — full height to bottom of grid (above buttons) */}
+          {/* Left: Nearest Police — same column height as right; bottom aligns with transcript card */}
           <section
-            className={`order-2 lg:order-1 ${cardRadius} bg-white p-5 md:p-6 flex flex-col min-h-[260px] lg:min-h-0 h-full border border-gray-200 shadow-sm`}
+            className={`order-2 lg:order-1 flex h-full min-h-[280px] flex-col lg:min-h-0 ${cardRadius} border border-gray-200 bg-white p-5 shadow-sm md:p-6`}
           >
             <NearestPolice />
           </section>
 
-          {/* Center: waveform — larger, centered, full outline */}
-          <div className="order-1 lg:order-2 flex min-h-[200px] lg:min-h-0 h-full">
-            <div
-              className={`flex flex-1 flex-col items-center justify-center w-full ${cardRadius} border border-white/20 bg-white/[0.04] px-4 py-6 md:px-8 md:py-10`}
-            >
+          {/* Center: waveform on bare background (no panel), centered */}
+          <div className="order-1 flex min-h-[240px] h-full min-w-0 flex-col justify-center lg:order-2 lg:min-h-0">
+            <div className="flex w-full flex-1 flex-col items-center justify-center px-2 md:px-4">
               <AudioWaveform paused={waveformPaused} />
               {(muted || onHold) && (
-                <p className="mt-4 text-xs text-white/45 tracking-wide text-center max-w-xs">
+                <p className="mt-5 max-w-xs text-center text-xs tracking-wide text-white/45">
                   {[onHold && "On hold", muted && "Monitoring muted"]
                     .filter(Boolean)
                     .join(" · ")}
@@ -187,8 +185,8 @@ export default function ActiveCallSession() {
             </div>
           </div>
 
-          {/* Right: Category + Live Transcript — stack grows to fill column */}
-          <div className="order-3 flex h-full min-h-[320px] flex-col gap-4 lg:min-h-0 lg:flex-1">
+          {/* Right: category + long transcript column (transcript flex-1 fills to match left column) */}
+          <div className="order-3 flex h-full min-h-[360px] flex-col gap-4 lg:min-h-0 lg:flex-1">
             <section
               className={`${cardRadius} bg-white p-5 md:p-6 shrink-0 border-2 shadow-sm`}
               style={{
