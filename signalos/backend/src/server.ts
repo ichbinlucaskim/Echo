@@ -58,35 +58,6 @@ const VALID_CATEGORIES: ReadonlySet<string> = new Set([
   "SILENT_DISTRESS",
 ]);
 
-/** Matches the scripted critical TTS line in prompts/systemPrompt.txt ("Urgent caller: …"). */
-function isCriticalAiVoiceLine(text: string): boolean {
-  const t = text.trim().toLowerCase();
-  if (!t) return false;
-  return /\burgent\b/.test(t) && /\bcaller\b/.test(t);
-}
-
-/**
- * When the model speaks the critical line, latch ALERT + broadcast so the dashboard
- * turns red in sync with TTS (covers ordering gaps vs functionCall).
- */
-function latchAlertFromAiVoice(callId: string, spokenLine: string): void {
-  const existing = getSession(callId);
-  if (!existing) return;
-  if (existing.status === "ALERT") return;
-
-  const line = spokenLine.trim();
-  const alertPayload: AlertPayload = {
-    callId,
-    anomalyType: "DISTRESS_SOUND",
-    confidence: 0.86,
-    transcript: existing.transcript ? existing.transcript : line,
-    suggestedResponse: line || "Critical caller — AI voice alert",
-    timestamp: new Date(),
-  };
-  markAlert(callId, alertPayload);
-  broadcast({ type: "ALERT", payload: alertPayload });
-}
-
 // ─── HTTP server (required by Railway health checks) ─────────────────────────
 
 const httpServer = http.createServer(
@@ -174,13 +145,12 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
   if (response.type === "transcription") {
     const label = response.source === "input" ? "Caller" : "AI";
     console.log(`[Gemini→Transcript] ${label} for callId: ${callId} — "${response.text}"`);
+    // Only append caller speech to the transcript, not Gemini output
     if (response.source === "input") {
       const updated = appendTranscript(callId, response.text);
       if (updated) {
         broadcast({ type: "STATE_UPDATE", payload: updated });
       }
-    } else if (isCriticalAiVoiceLine(response.text)) {
-      latchAlertFromAiVoice(callId, response.text);
     }
     return;
   }
