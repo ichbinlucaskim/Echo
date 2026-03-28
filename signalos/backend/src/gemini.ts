@@ -4,9 +4,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const GEMINI_LIVE_WS_URL =
-  "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent";
+  "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
 
-const GEMINI_MODEL = "models/gemini-2.0-flash-live-001";
+const GEMINI_MODEL = "models/gemini-3.1-flash-live-preview";
 
 // ─── Outbound message types ───────────────────────────────────────────────────
 
@@ -88,6 +88,7 @@ class GeminiLiveSession {
   open(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const url = `${GEMINI_LIVE_WS_URL}?key=${this.apiKey}`;
+      console.log(`[Gemini] Connecting — model: ${GEMINI_MODEL}`);
       this.ws = new WebSocket(url);
 
       this.ws.on("open", () => {
