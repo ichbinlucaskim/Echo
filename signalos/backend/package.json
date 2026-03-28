@@ -1,0 +1,23 @@
+{
+  "name": "signalos-backend",
+  "version": "1.0.0",
+  "description": "SignalOS WebSocket server — real-time AI monitoring for 911 on-hold calls",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "latest",
+    "ws": "^8.0.0",
+    "alawmulaw": "^1.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "ts-node-dev": "^2.0.0",
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.0.0"
+  }
+}
