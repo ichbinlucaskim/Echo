@@ -124,11 +124,12 @@ twilioWss.on("connection", (ws: WebSocket) => {
 
   console.log("[Twilio] New connection established");
 
-  ws.on("message", (raw: Buffer) => {
+  ws.on("message", (raw: WebSocket.RawData) => {
     let message: TwilioMessage;
 
     try {
-      message = JSON.parse(raw.toString()) as TwilioMessage;
+      const text = typeof raw === "string" ? raw : Buffer.from(raw as ArrayBuffer).toString("utf-8");
+      message = JSON.parse(text) as TwilioMessage;
     } catch (err) {
       console.error("[Twilio] Failed to parse message:", err);
       return;
