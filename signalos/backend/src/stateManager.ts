@@ -102,7 +102,6 @@ export function markRouted(callId: string): CallState | null {
   const updated: CallState = {
     ...existing,
     status: "ROUTED",
-    category: "NON_EMERGENCY",
   };
   sessions.set(callId, updated);
   return updated;

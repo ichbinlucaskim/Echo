@@ -81,39 +81,13 @@ export default function ActiveCallSession() {
   const highSeverity = isHighSeverity(category, isAlert);
   const categoryColor = CATEGORY_COLORS[category] ?? CATEGORY_COLORS.MONITORING;
 
-  // Build transcript lines from real backend data
+  // Build transcript lines from caller speech only
   const transcriptLines = useMemo(() => {
     if (!call) return [];
-    const lines: { from: "caller" | "system"; text: string }[] = [];
-
-    // Real transcript from Gemini
     const transcript = call.transcript?.trim();
-    if (transcript) {
-      lines.push({ from: "caller", text: transcript });
-    }
-
-    // Category summary from Gemini
-    if (categorySummary) {
-      lines.push({ from: "system", text: `Category: ${categoryLabel} — ${categorySummary}` });
-    }
-
-    // Alert info
-    if (alertForCall) {
-      lines.push({
-        from: "system",
-        text: `Alert: ${alertForCall.anomalyType} detected (${Math.round(alertForCall.confidence * 100)}% confidence)`,
-      });
-      if (alertForCall.suggestedResponse) {
-        lines.push({ from: "system", text: `Suggested: ${alertForCall.suggestedResponse}` });
-      }
-    }
-
-    if (lines.length === 0) {
-      lines.push({ from: "system", text: "Listening to call audio..." });
-    }
-
-    return lines;
-  }, [call, alertForCall, categorySummary, categoryLabel]);
+    if (!transcript) return [];
+    return transcript.split("\n").filter(Boolean).map((text) => ({ from: "caller" as const, text }));
+  }, [call]);
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -238,31 +212,27 @@ export default function ActiveCallSession() {
                 Live Transcript
               </h3>
               <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1 min-h-0">
-                {transcriptLines.map((line, idx) => (
-                  <div
-                    key={`${line.from}-${idx}`}
-                    className={
-                      line.from === "caller"
-                        ? "flex flex-col items-start"
-                        : "flex flex-col items-end"
-                    }
-                  >
-                    <span className="text-[12px] text-black font-medium mb-1 px-0.5 opacity-80">
-                      {line.from === "caller" ? callerFirst : "AI Monitor"}
-                    </span>
-                    <div
-                      className={`max-w-[min(100%,280px)] px-4 py-2.5 text-[15px] leading-snug text-white ${cardRadius}`}
-                      style={{
-                        backgroundColor:
-                          line.from === "caller" ? C.chatBlue : C.dispatchBubble,
-                        borderTopLeftRadius: line.from === "caller" ? 6 : 14,
-                        borderTopRightRadius: line.from !== "caller" ? 6 : 14,
-                      }}
-                    >
-                      {line.text}
+                {transcriptLines.length === 0 ? (
+                  <p className="text-gray-400 text-[14px]">Listening to call audio...</p>
+                ) : (
+                  transcriptLines.map((line, idx) => (
+                    <div key={idx} className="flex flex-col items-start">
+                      <span className="text-[12px] text-black font-medium mb-1 px-0.5 opacity-80">
+                        {callerFirst}
+                      </span>
+                      <div
+                        className={`max-w-[min(100%,280px)] px-4 py-2.5 text-[15px] leading-snug text-white ${cardRadius}`}
+                        style={{
+                          backgroundColor: C.chatBlue,
+                          borderTopLeftRadius: 6,
+                          borderTopRightRadius: 14,
+                        }}
+                      >
+                        {line.text}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
                 <div ref={transcriptEndRef} />
               </div>
             </section>
