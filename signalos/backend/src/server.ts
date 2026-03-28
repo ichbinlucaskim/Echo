@@ -122,6 +122,16 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
     return;
   }
 
+  if (response.type === "transcription") {
+    const label = response.source === "input" ? "Caller" : "AI";
+    console.log(`[Gemini→Transcript] ${label} for callId: ${callId} — "${response.text}"`);
+    const updated = appendTranscript(callId, response.text);
+    if (updated) {
+      broadcast({ type: "STATE_UPDATE", payload: updated });
+    }
+    return;
+  }
+
   if (response.type === "text") {
     console.log(`[Gemini→State] Text for callId: ${callId} — "${response.text}"`);
     const updated = appendTranscript(callId, response.text);

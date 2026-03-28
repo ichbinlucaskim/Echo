@@ -160,6 +160,12 @@ interface GeminiServerMessage {
     modelTurn?: {
       parts: GeminiPart[];
     };
+    inputTranscription?: {
+      text: string;
+    };
+    outputTranscription?: {
+      text: string;
+    };
     turnComplete?: boolean;
   };
 }
@@ -183,7 +189,17 @@ export interface GeminiAudioResponse {
   data: string; // base64-encoded PCM
 }
 
-export type GeminiResponse = GeminiTextResponse | GeminiFunctionCallResponse | GeminiAudioResponse;
+export interface GeminiTranscriptionResponse {
+  type: "transcription";
+  source: "input" | "output";
+  text: string;
+}
+
+export type GeminiResponse =
+  | GeminiTextResponse
+  | GeminiFunctionCallResponse
+  | GeminiAudioResponse
+  | GeminiTranscriptionResponse;
 
 // ─── Low-level session (one per callId) ──────────────────────────────────────
 
@@ -258,6 +274,19 @@ class GeminiLiveSession {
 
         // Content response
         const msg = parsed as GeminiServerMessage;
+
+        // Input audio transcription (what the caller said)
+        const inputText = msg.serverContent?.inputTranscription?.text;
+        if (inputText?.trim()) {
+          this.onResponse({ type: "transcription", source: "input", text: inputText });
+        }
+
+        // Output audio transcription (what Gemini said)
+        const outputText = msg.serverContent?.outputTranscription?.text;
+        if (outputText?.trim()) {
+          this.onResponse({ type: "transcription", source: "output", text: outputText });
+        }
+
         const parts = msg.serverContent?.modelTurn?.parts ?? [];
 
         for (const part of parts) {
