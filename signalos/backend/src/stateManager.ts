@@ -66,11 +66,11 @@ export function appendTranscript(
   return updated;
 }
 
-// Marks a session as ALERT and records the alert payload in the transcript.
+// Marks a session as ALERT. Preserves the caller's raw transcript.
 // Returns the updated CallState, or null if the session doesn't exist.
 export function markAlert(
   callId: string,
-  alert: AlertPayload
+  _alert: AlertPayload
 ): CallState | null {
   const existing = sessions.get(callId);
   if (!existing) return null;
@@ -78,7 +78,6 @@ export function markAlert(
   const updated: CallState = {
     ...existing,
     status: "ALERT",
-    transcript: alert.transcript,
   };
   sessions.set(callId, updated);
   return updated;

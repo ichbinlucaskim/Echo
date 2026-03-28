@@ -146,7 +146,7 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
         callId,
         anomalyType: "DISTRESS_SOUND",
         confidence: 0.9,
-        transcript: `Gemini detected critical situation for ${callerName}`,
+        transcript: session.transcript || `Gemini detected critical situation for ${callerName}`,
         suggestedResponse: "Dispatcher attention required — Gemini flagged this call",
         timestamp: new Date(),
       };
@@ -243,11 +243,12 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
         console.log(
           `[ALERT] ${alertInfo.label} callId: ${callId} | confidence: ${(confidence * 100).toFixed(0)}% | summary: "${summary}"`
         );
+        const session = getSession(callId);
         const alertPayload: AlertPayload = {
           callId,
           anomalyType: alertInfo.anomalyType,
           confidence,
-          transcript: summary,
+          transcript: session?.transcript || summary,
           suggestedResponse:
             `${alertInfo.label} detected — dispatcher attention required`,
           timestamp: new Date(),
@@ -291,17 +292,18 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
       return;
     }
 
+    const session = getSession(callId);
     const alertPayload: AlertPayload = {
       callId,
       anomalyType: anomalyType as AnomalyType,
       confidence,
-      transcript,
+      transcript: session?.transcript || transcript,
       suggestedResponse,
       timestamp: new Date(),
     };
 
     console.log(
-      `[ALERT] triggerAlert fired — callId: ${callId} | type: ${anomalyType} | confidence: ${(confidence * 100).toFixed(0)}% | transcript: "${transcript}"`
+      `[ALERT] triggerAlert fired — callId: ${callId} | type: ${anomalyType} | confidence: ${(confidence * 100).toFixed(0)}% | transcript: "${alertPayload.transcript}"`
     );
 
     markAlert(callId, alertPayload);
