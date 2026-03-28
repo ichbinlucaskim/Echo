@@ -5,8 +5,8 @@ import { useMemo } from "react";
 const BAR_COUNT = 9;
 
 /** Mock silhouette L→R: medium, tall, very tall, medium, tall, short, tall, medium, short */
-const BAR_HEIGHTS_PX = [86, 110, 128, 86, 104, 58, 100, 86, 58];
-const BAR_WIDTHS_PX = [11, 12, 13, 11, 12, 10, 12, 11, 10];
+const BAR_HEIGHTS_PX = [132, 168, 198, 132, 162, 88, 156, 132, 88];
+const BAR_WIDTHS_PX = [14, 16, 18, 14, 16, 12, 16, 14, 12];
 
 type AudioWaveformProps = {
   /** Pause animation when monitoring is muted or call is on hold. */
@@ -31,7 +31,7 @@ export default function AudioWaveform({ paused = false }: AudioWaveformProps) {
 
   return (
     <div
-      className={`flex items-end justify-center gap-[12px] md:gap-[18px] py-2 md:py-3 w-full max-w-md mx-auto ${paused ? "waveform-paused" : ""}`}
+      className={`mx-auto flex w-full max-w-2xl items-end justify-center gap-4 py-4 md:gap-6 md:py-6 lg:max-w-3xl lg:gap-7 ${paused ? "waveform-paused" : ""}`}
       aria-hidden
     >
       {bars.map(({ i, height, width, duration, delay, minScale, maxScale }) => (
@@ -42,7 +42,7 @@ export default function AudioWaveform({ paused = false }: AudioWaveformProps) {
             {
               height: `${height}px`,
               width: `${width}px`,
-              boxShadow: "0 0 14px rgba(255,255,255,0.25)",
+              boxShadow: "0 0 20px rgba(255,255,255,0.35)",
               "--wave-dur": `${duration}s`,
               "--wave-delay": `${delay}s`,
               "--wave-min": minScale,
