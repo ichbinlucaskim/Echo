@@ -107,7 +107,7 @@ const TRIGGER_ALERT_DECLARATION: FunctionDeclaration = {
 const CATEGORIZE_CALL_DECLARATION: FunctionDeclaration = {
   name: "categorizeCall",
   description:
-    "Categorize the call based on its audio content. Call exactly once after 15-20 seconds of audio.",
+    "Categorize the call based on its audio content. Call after 10-15 seconds of audio, and AGAIN whenever the category changes.",
   parameters: {
     type: "OBJECT",
     properties: {
