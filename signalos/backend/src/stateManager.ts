@@ -1,4 +1,4 @@
-import { CallState, CallStatus, AlertPayload } from "./types";
+import { CallState, CallStatus, CallCategory, AlertPayload } from "./types";
 
 const sessions = new Map<string, CallState>();
 
@@ -8,6 +8,8 @@ export function createSession(callId: string): CallState {
     status: "ACTIVE" as CallStatus,
     transcript: "",
     startedAt: new Date(),
+    category: "MONITORING",
+    categorySummary: "",
   };
   sessions.set(callId, state);
   console.log(
@@ -63,6 +65,30 @@ export function markAlert(
     ...existing,
     status: "ALERT",
     transcript: alert.transcript,
+  };
+  sessions.set(callId, updated);
+  return updated;
+}
+
+export function updateCategory(
+  callId: string,
+  category: CallCategory,
+  categorySummary: string
+): CallState | null {
+  const existing = sessions.get(callId);
+  if (!existing) return null;
+  const updated: CallState = { ...existing, category, categorySummary };
+  sessions.set(callId, updated);
+  return updated;
+}
+
+export function markRouted(callId: string): CallState | null {
+  const existing = sessions.get(callId);
+  if (!existing) return null;
+  const updated: CallState = {
+    ...existing,
+    status: "ROUTED",
+    category: "NON_EMERGENCY",
   };
   sessions.set(callId, updated);
   return updated;
