@@ -40,6 +40,42 @@ const VALID_ANOMALY_TYPES: ReadonlySet<string> = new Set([
   "DISTRESS_SOUND",
 ]);
 
+// ─── Audio gate: buffer Gemini audio and only forward "Urgent caller" speech ─
+interface BufferedChunk {
+  mimeType: string;
+  data: string;
+}
+const audioBuffers = new Map<string, BufferedChunk[]>();
+
+function bufferAudio(callId: string, mimeType: string, data: string): void {
+  let buf = audioBuffers.get(callId);
+  if (!buf) {
+    buf = [];
+    audioBuffers.set(callId, buf);
+  }
+  buf.push({ mimeType, data });
+}
+
+function flushAudio(callId: string): void {
+  const buf = audioBuffers.get(callId);
+  if (!buf || buf.length === 0) return;
+  for (const chunk of buf) {
+    broadcast({
+      type: "AUDIO_CHUNK",
+      payload: { callId, mimeType: chunk.mimeType, data: chunk.data },
+    });
+  }
+  audioBuffers.delete(callId);
+}
+
+function discardAudio(callId: string): void {
+  const buf = audioBuffers.get(callId);
+  if (buf && buf.length > 0) {
+    console.log(`[AudioGate] Discarded ${buf.length} unwanted audio chunks for callId: ${callId}`);
+  }
+  audioBuffers.delete(callId);
+}
+
 const CALLER_NAMES: Record<string, string> = {
   sim_call_1: "Monica Schmidt",
   sim_call_2: "James Anderson",
@@ -130,51 +166,51 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
     if (!session) return;
     if (session.muted || session.onHold) return;
 
-    // Gemini speaking means it detected a critical anomaly (per system prompt,
-    // the ONLY reason it speaks is "Urgent caller: <name>").
-    // Only escalate if the call is already categorized as high-severity;
-    // non-emergency calls (e.g. broken street light) should not trigger alerts
-    // even if Gemini produces spurious audio.
-    const ALERT_ELIGIBLE: ReadonlySet<string> = new Set([
-      "MEDICAL", "CRIME", "FIRE_HAZARD", "SILENT_DISTRESS",
-    ]);
-    if (session.status !== "ALERT" && ALERT_ELIGIBLE.has(session.category)) {
-      console.log(`[ALERT] Gemini spoke audio for callId: ${callId} (category: ${session.category}) — triggering alert`);
-      const callerName = CALLER_NAMES[callId] ?? DEFAULT_CALLER_NAME;
-      const alertPayload: AlertPayload = {
-        callId,
-        anomalyType: "DISTRESS_SOUND",
-        confidence: 0.9,
-        transcript: session.transcript || `Gemini detected critical situation for ${callerName}`,
-        suggestedResponse: "Dispatcher attention required — Gemini flagged this call",
-        timestamp: new Date(),
-      };
-      markAlert(callId, alertPayload);
-      broadcast({ type: "STATE_UPDATE", payload: { ...session, status: "ALERT" } });
-      broadcast({ type: "ALERT", payload: alertPayload });
-    } else if (session.status !== "ALERT") {
-      console.log(`[Gemini] Audio ignored for callId: ${callId} — category "${session.category}" is not alert-eligible`);
-    }
-
-    broadcast({
-      type: "AUDIO_CHUNK",
-      payload: {
-        callId,
-        mimeType: response.mimeType,
-        data: response.data,
-      },
-    });
+    // Buffer audio — only forwarded when output transcription confirms "Urgent caller"
+    bufferAudio(callId, response.mimeType, response.data);
     return;
   }
 
   if (response.type === "transcription") {
     const label = response.source === "input" ? "Caller" : "AI";
     console.log(`[Gemini→Transcript] ${label} for callId: ${callId} — "${response.text}"`);
-    // Only append caller speech to the transcript, not Gemini output
+
     if (response.source === "input") {
       const updated = appendTranscript(callId, response.text);
       if (updated) {
         broadcast({ type: "STATE_UPDATE", payload: updated });
+      }
+    }
+
+    // Output transcription = what Gemini said. Gate the buffered audio:
+    // only forward if it's the "Urgent caller" phrase, discard everything else.
+    if (response.source === "output") {
+      const isUrgent = /urgent\s+caller/i.test(response.text);
+      if (isUrgent) {
+        console.log(`[AudioGate] "Urgent caller" detected for callId: ${callId} — forwarding audio`);
+        flushAudio(callId);
+
+        // Trigger alert from the voice announcement
+        const session = getSession(callId);
+        const ALERT_ELIGIBLE: ReadonlySet<string> = new Set([
+          "MEDICAL", "CRIME", "FIRE_HAZARD", "SILENT_DISTRESS",
+        ]);
+        if (session && session.status !== "ALERT" && ALERT_ELIGIBLE.has(session.category)) {
+          const callerName = CALLER_NAMES[callId] ?? DEFAULT_CALLER_NAME;
+          const alertPayload: AlertPayload = {
+            callId,
+            anomalyType: "DISTRESS_SOUND",
+            confidence: 0.9,
+            transcript: session.transcript || `Gemini detected critical situation for ${callerName}`,
+            suggestedResponse: "Dispatcher attention required — Gemini flagged this call",
+            timestamp: new Date(),
+          };
+          markAlert(callId, alertPayload);
+          broadcast({ type: "STATE_UPDATE", payload: { ...session, status: "ALERT" } });
+          broadcast({ type: "ALERT", payload: alertPayload });
+        }
+      } else {
+        discardAudio(callId);
       }
     }
     return;
@@ -447,6 +483,7 @@ twilioWss.on("connection", (ws: WebSocket) => {
           const endedSession = getSession(callId);
           if (endedSession) void saveCallLog(endedSession);
           closeGeminiSession(callId);
+          discardAudio(callId);
           deleteSession(callId);
           broadcast({ type: "CALL_ENDED", payload: { callId } });
           callId = null;
@@ -462,6 +499,7 @@ twilioWss.on("connection", (ws: WebSocket) => {
       const endedSession = getSession(ended);
       if (endedSession) void saveCallLog(endedSession);
       closeGeminiSession(ended);
+      discardAudio(ended);
       deleteSession(ended);
       broadcast({ type: "CALL_ENDED", payload: { callId: ended } });
       callId = null;
@@ -551,6 +589,7 @@ function handleDashboardCommand(raw: RawData): void {
         if (endedSession) await saveCallLog(endedSession);
         await hangupCall(cmd.callId);
         closeGeminiSession(cmd.callId);
+        discardAudio(cmd.callId);
         deleteSession(cmd.callId);
         broadcast({ type: "CALL_ENDED", payload: { callId: cmd.callId } });
         // Clear selection if the ended call was selected
