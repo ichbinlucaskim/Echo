@@ -2,7 +2,7 @@ import CallCard from "./CallCard";
 import { useSignalOS } from "../lib/socket";
 
 export default function Sidebar() {
-  const { calls, activeAlert, dismissAlert } = useSignalOS();
+  const { calls } = useSignalOS();
 
   // Convert map to array and sort: ALERTS first, then by start date
   const sortedCalls = Object.values(calls).sort((a, b) => {
@@ -32,12 +32,7 @@ export default function Sidebar() {
             </div>
           ) : (
             sortedCalls.map((call) => (
-              <CallCard
-                key={call.callId}
-                call={call}
-                alert={activeAlert?.callId === call.callId ? activeAlert : null}
-                onResolve={dismissAlert}
-              />
+              <CallCard key={call.callId} call={call} />
             ))
           )}
         </div>

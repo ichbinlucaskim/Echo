@@ -31,3 +31,29 @@ body {
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background-color: rgba(255, 255, 255, 0.2);
 }
+
+/* Active call session — center waveform */
+.audio-wave-bar {
+  height: 4rem;
+  transform-origin: center bottom;
+  animation: audioWave var(--wave-dur, 0.6s) ease-in-out infinite;
+  animation-delay: var(--wave-delay, 0s);
+}
+
+@media (min-width: 768px) {
+  .audio-wave-bar {
+    height: 5rem;
+  }
+}
+
+@keyframes audioWave {
+  0%,
+  100% {
+    transform: scaleY(var(--wave-min, 0.35));
+    opacity: 0.85;
+  }
+  50% {
+    transform: scaleY(var(--wave-max, 0.95));
+    opacity: 1;
+  }
+}
