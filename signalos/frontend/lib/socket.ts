@@ -24,9 +24,14 @@ export function useSignalOS(): SignalOSState {
   const connect = useCallback((): void => {
     if (!mountedRef.current) return;
 
-    const base =
-      process.env.NEXT_PUBLIC_BACKEND_URL ?? "ws://localhost:3001";
-    const url = `${base}/dashboard`;
+    // Prefer NEXT_PUBLIC_BACKEND_WS_URL (full wss://…/dashboard) — matches Vercel docs we used.
+    // Legacy: NEXT_PUBLIC_BACKEND_URL base only, we append /dashboard.
+    const url =
+      process.env.NEXT_PUBLIC_BACKEND_WS_URL?.trim() ||
+      `${(process.env.NEXT_PUBLIC_BACKEND_URL ?? "ws://localhost:3001").replace(
+        /\/$/,
+        ""
+      )}/dashboard`;
 
     console.log("[Socket] Connecting →", url);
     const ws = new WebSocket(url);
