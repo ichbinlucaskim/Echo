@@ -1,8 +1,18 @@
 "use client";
 
 import { useJsApiLoader, GoogleMap, Marker } from "@react-google-maps/api";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSignalOSContext } from "../context/SignalOSContext";
+import { getSupabase } from "../lib/supabase";
+
+interface Officer {
+  id: string;
+  name: string;
+  code: string;
+  status: string;
+  lat: number;
+  lng: number;
+}
 
 const MAP_OPTIONS = {
   disableDefaultUI: true,
@@ -17,9 +27,26 @@ const MAP_OPTIONS = {
       stylers: [{ color: "#d59563" }],
     },
     {
+      featureType: "poi.business",
+      stylers: [{ visibility: "off" }],
+    },
+    {
+      featureType: "poi.attraction",
+      stylers: [{ visibility: "off" }],
+    },
+    {
+      featureType: "poi.place_of_worship",
+      stylers: [{ visibility: "off" }],
+    },
+    {
       featureType: "poi",
       elementType: "labels.text.fill",
       stylers: [{ color: "#d59563" }],
+    },
+    {
+      featureType: "poi",
+      elementType: "labels.icon",
+      stylers: [{ visibility: "off" }],
     },
     {
       featureType: "poi.park",
@@ -104,12 +131,49 @@ const MOCK_CALL_LOCATIONS: Record<string, { lat: number; lng: number }> = {
 
 export default function GoogleMapBackground() {
   const { calls } = useSignalOSContext();
+  const [officers, setOfficers] = useState<Officer[]>([]);
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
     libraries: LIBRARIES,
   });
 
   const center = useMemo(() => ({ lat: 34.0689, lng: -118.4452 }), []);
+
+  // Fetch officers from Supabase for red pins
+  useEffect(() => {
+    async function fetchOfficers() {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase
+          .from("officers")
+          .select("id, name, code, status, lat, lng");
+        if (data) setOfficers(data as Officer[]);
+      } catch {
+        // Supabase not configured yet
+      }
+    }
+    fetchOfficers();
+
+    // Real-time updates
+    let channel: ReturnType<ReturnType<typeof getSupabase>["channel"]> | null = null;
+    try {
+      const supabase = getSupabase();
+      channel = supabase
+        .channel("officers-map")
+        .on("postgres_changes", { event: "*", schema: "public", table: "officers" }, () => {
+          fetchOfficers();
+        })
+        .subscribe();
+    } catch {
+      // skip
+    }
+
+    return () => {
+      if (channel) {
+        try { getSupabase().removeChannel(channel); } catch { /* ignore */ }
+      }
+    };
+  }, []);
 
   if (loadError) {
     return (
@@ -135,31 +199,39 @@ export default function GoogleMapBackground() {
         zoom={15}
         options={MAP_OPTIONS}
       >
+        {/* Blue pins — active calls */}
         {Object.values(calls).map((call, idx) => {
-          // Quick deterministic location assignment for simulator IDs
           const loc =
             MOCK_CALL_LOCATIONS[call.callId] ||
             MOCK_CALL_LOCATIONS[`sim_call_${(idx % 5) + 1}`];
-
           if (!loc) return null;
-
-          // Highlight critical markers
-          const iconUrl =
-            call.status === "ALERT"
-              ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
-              : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png";
 
           return (
             <Marker
-              key={call.callId}
+              key={`call-${call.callId}`}
               position={loc}
               icon={{
-                url: iconUrl,
+                url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
                 scaledSize: new window.google.maps.Size(32, 32),
               }}
             />
           );
         })}
+
+        {/* Red pins — police officers */}
+        {officers
+          .filter((o) => o.lat !== 0 && o.lng !== 0)
+          .map((officer) => (
+            <Marker
+              key={`officer-${officer.id}`}
+              position={{ lat: officer.lat, lng: officer.lng }}
+              icon={{
+                url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+                scaledSize: new window.google.maps.Size(32, 32),
+              }}
+              title={`${officer.code} — ${officer.status}`}
+            />
+          ))}
       </GoogleMap>
     </div>
   );
