@@ -13,9 +13,6 @@ const GEMINI_MODEL = "models/gemini-3.1-flash-live-preview";
 interface GeminiSetupMessage {
   setup: {
     model: string;
-    generation_config?: {
-      response_modalities: string[];
-    };
   };
 }
 
@@ -95,9 +92,6 @@ class GeminiLiveSession {
         const setup: GeminiSetupMessage = {
           setup: {
             model: GEMINI_MODEL,
-            generation_config: {
-              response_modalities: ["TEXT"],
-            },
           },
         };
         this.send(setup);
