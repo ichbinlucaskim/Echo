@@ -17,6 +17,9 @@ interface GeminiSetupMessage {
     generationConfig?: {
       responseModalities: string[];
     };
+    /** gemini-3.1-flash-live-preview: enable text transcripts alongside native audio */
+    inputAudioTranscription?: Record<string, never>;
+    outputAudioTranscription?: Record<string, never>;
   };
 }
 
@@ -94,12 +97,16 @@ class GeminiLiveSession {
       this.ws = new WebSocket(url);
 
       this.ws.on("open", () => {
+        // 3.1 Flash Live is documented with AUDIO only; TEXT-only modality can 1011.
+        // See https://ai.google.dev/gemini-api/docs/live-guide (gemini-3.1-flash-live-preview).
         const setup: GeminiSetupMessage = {
           setup: {
             model: GEMINI_MODEL,
             generationConfig: {
-              responseModalities: ["TEXT"],
+              responseModalities: ["AUDIO"],
             },
+            inputAudioTranscription: {},
+            outputAudioTranscription: {},
           },
         };
         this.send(setup);
