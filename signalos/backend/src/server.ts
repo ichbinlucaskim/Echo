@@ -131,32 +131,21 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
     if (!session) return;
     if (session.muted || session.onHold) return;
 
-    // Gemini only speaks when it detects a critical anomaly.
-    // If the call isn't already ALERT, trigger one now.
-    if (session.status !== "ALERT") {
-      console.log(`[ALERT] Gemini spoke audio for callId: ${callId} — triggering alert`);
-      const callerName = CALLER_NAMES[callId] ?? DEFAULT_CALLER_NAME;
-      const alertPayload: AlertPayload = {
-        callId,
-        anomalyType: "DISTRESS_SOUND",
-        confidence: 0.9,
-        transcript: `Gemini detected critical situation for ${callerName}`,
-        suggestedResponse: "Dispatcher attention required — Gemini flagged this call",
-        timestamp: new Date(),
-      };
-      markAlert(callId, alertPayload);
-      broadcast({ type: "STATE_UPDATE", payload: { ...session, status: "ALERT" } });
-      broadcast({ type: "ALERT", payload: alertPayload });
+    // Only forward audio if the call is already in ALERT state
+    // (triggered by categorizeCall or triggerAlert function calls).
+    // This prevents unwanted Gemini greetings from being broadcast.
+    if (session.status === "ALERT") {
+      broadcast({
+        type: "AUDIO_CHUNK",
+        payload: {
+          callId,
+          mimeType: response.mimeType,
+          data: response.data,
+        },
+      });
+    } else {
+      console.log(`[Gemini] Dropping audio for non-alert callId: ${callId} (likely unwanted greeting)`);
     }
-
-    broadcast({
-      type: "AUDIO_CHUNK",
-      payload: {
-        callId,
-        mimeType: response.mimeType,
-        data: response.data,
-      },
-    });
     return;
   }
 
