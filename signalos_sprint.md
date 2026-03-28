@@ -85,12 +85,10 @@
 
 | Role | Owner | Core Responsibility |
 |---|---|---|
-| **Backend 1 — Comms** | TBD | Twilio setup, WebSocket architecture, stream routing |
-| **Backend 2 — State** | TBD | Session management, state sync, Railway deployment |
-| **AI Integration** | TBD | Gemini Live API, system prompts, function calling, simulation script |
-| **UI/UX** | TBD | Next.js dashboard, alert banner, incident report, Vercel deployment |
-
-> Fill in names before starting Sprint 0. Each person owns their checklist items above.
+| **Project Manager & Frontend** | Erick | Ideation, project direction, frontend architecture and system design |
+| **System Design & Backend Lead** | Lucas | Architecture design, backend structure, feature design, Gemini integration |
+| **QA Engineer** | Aiden | Twilio, Railway, WebSocket, Vercel integration and end-to-end verification |
+| **UI/UX Designer** | Mike | Frontend design, dashboard layout, alert system, visual components |
 
 ---
 
