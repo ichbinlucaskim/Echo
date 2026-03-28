@@ -45,7 +45,6 @@ const CALLER_NAMES: Record<string, string> = {
   sim_call_2: "James Anderson",
   sim_call_3: "Sofia Patel",
   sim_call_4: "Carlos Rodriguez",
-  sim_call_5: "Emma Johnson",
 };
 const DEFAULT_CALLER_NAME = "Liam Thompson";
 

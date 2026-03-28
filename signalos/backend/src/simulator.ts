@@ -22,9 +22,8 @@ interface SimStream {
 const STREAMS: SimStream[] = [
   { callId: "sim_call_1", audioFile: "normal_call_1.wav" },
   { callId: "sim_call_2", audioFile: "normal_call_2.wav" },
-  { callId: "sim_call_3", audioFile: "normal_call_1.wav" },
-  { callId: "sim_call_4", audioFile: "normal_call_2.wav" },
-  { callId: "sim_call_5", audioFile: "normal_call_1.wav" },
+  { callId: "sim_call_3", audioFile: "distress_test.wav" },
+  { callId: "sim_call_4", audioFile: "whisper_test.wav" },
 ];
 
 // ─── Audio loading ────────────────────────────────────────────────────────────
@@ -167,7 +166,7 @@ function runStream(
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  console.log(`[Simulator] Starting 5 simulated streams → ${BACKEND_URL}`);
+  console.log(`[Simulator] Starting 4 simulated streams → ${BACKEND_URL}`);
 
   // Pre-load audio for each stream
   const audioChunks: Map<string, Buffer[]> = new Map(
@@ -182,7 +181,7 @@ async function main(): Promise<void> {
       const active = await runStream(stream, chunks);
       activeStreams.push(active);
       console.log(
-        `[Simulator] Stream running — callId: ${stream.callId} | ${activeStreams.length}/5 active`
+        `[Simulator] Stream running — callId: ${stream.callId} | ${activeStreams.length}/4 active`
       );
       // 200ms stagger between stream opens
       await new Promise<void>((r) => setTimeout(r, 200));
@@ -195,7 +194,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `[Simulator] All streams running — ${activeStreams.length}/5 connected`
+    `[Simulator] All streams running — ${activeStreams.length}/4 connected`
   );
 
   // Graceful shutdown on SIGINT
