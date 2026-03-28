@@ -76,7 +76,10 @@ export default function Home(): React.JSX.Element {
       <div className="flex flex-1 gap-4 p-4 min-h-0">
         {/* Call grid */}
         <div className="flex-1">
-          <CallGrid calls={calls} />
+          <CallGrid
+            calls={calls}
+            backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL ?? "ws://localhost:3001"}
+          />
         </div>
 
         {/* Incident report panel */}

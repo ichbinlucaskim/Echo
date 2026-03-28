@@ -490,6 +490,113 @@ To stay on schedule, cut these without guilt:
 
 ---
 
+## SPRINT 5 — Google Feedback Features `[Hour 15–20]`
+
+**Goal:** Two features requested by Google judges during the hackathon.
+
+---
+
+### Feature 1: Call Categorization System (content-based, via Gemini)
+
+Gemini analyzes the call audio and automatically categorizes the call based on actual content — not a timer.
+
+**Add to `prompts/systemPrompt.txt`:**
+
+Call `categorizeCall` after analyzing enough audio to understand the nature of the call (typically 15–20 seconds). Only call it once per session. Do not call it again after the first categorization.
+
+**Categories (7 total):**
+- `MONITORING` — still analyzing, not enough audio yet (initial state, not sent by Gemini)
+- `NON_EMERGENCY` — noise complaint, minor issue, lost property, non-urgent
+- `MEDICAL` — heart attack, injury, unconscious, medical emergency
+- `TRAFFIC` — car accident, road hazard, collision
+- `FIRE_HAZARD` — fire, gas leak, explosion, hazardous material
+- `CRIME` — robbery, assault, break-in, active threat
+- `SILENT_DISTRESS` — whisper, tapping only, slurred speech; caller cannot speak freely (domestic violence, intruder present, stroke). **Highest visual priority — triggers AlertBanner same as triggerAlert.**
+
+**UI colors:**
+- `MONITORING` → gray
+- `NON_EMERGENCY` → green
+- `MEDICAL` → orange
+- `TRAFFIC` → blue
+- `FIRE_HAZARD` → red
+- `CRIME` → red
+- `SILENT_DISTRESS` → purple pulsing + "Requires immediate attention" below badge
+
+**Function definition in `gemini.ts` setup:**
+```json
+{
+  "name": "categorizeCall",
+  "description": "Categorize the call based on its audio content. Call exactly once after 15-20 seconds of audio.",
+  "parameters": {
+    "type": "OBJECT",
+    "properties": {
+      "category": {
+        "type": "STRING",
+        "enum": ["NON_EMERGENCY", "MEDICAL", "TRAFFIC", "FIRE_HAZARD", "CRIME", "SILENT_DISTRESS"]
+      },
+      "confidence": { "type": "NUMBER" },
+      "summary": { "type": "STRING" }
+    },
+    "required": ["category", "confidence", "summary"]
+  }
+}
+```
+
+**Backend changes:**
+
+`src/types/index.ts`:
+- `CallCategory`: `"MONITORING" | "NON_EMERGENCY" | "MEDICAL" | "TRAFFIC" | "FIRE_HAZARD" | "CRIME" | "SILENT_DISTRESS"`
+- `"ROUTED"` added to `CallStatus`
+- `CallState` gains `category: CallCategory` and `categorySummary: string`
+
+`src/stateManager.ts`:
+- `createSession` initializes `category: "MONITORING"`, `categorySummary: ""`
+- `updateCategory(callId, category, summary)` — sets category + summary, broadcasts
+- `markRouted(callId)` — sets `status: "ROUTED"`, `category: "NON_EMERGENCY"`
+
+`src/server.ts`:
+- `categorizeCall` handler: validates args, logs `[Category] categorizeCall fired`, calls `updateCategory`, broadcasts STATE_UPDATE
+- `SILENT_DISTRESS` path: additionally logs `[SILENT DISTRESS]`, calls `markAlert`, broadcasts ALERT (same as triggerAlert)
+- `POST /route-non-emergency` endpoint: calls `markRouted`, broadcasts STATE_UPDATE
+
+**Frontend changes:**
+
+`frontend/types/index.ts`: mirrors backend `CallCategory` and `CallStatus` additions
+
+`frontend/components/CallGrid.tsx`:
+- Category badge per call box with 7-color system above
+- `SILENT_DISTRESS`: pulsing purple badge + "Requires immediate attention" text
+- `categorySummary` shown as one-line truncated text under badge
+- "Route to Non-Emergency" button: visible when `ACTIVE` or `ON-HOLD`, POSTs to `/route-non-emergency`
+- ROUTED calls shown at 50% opacity
+
+---
+
+### Feature 2: Non-Emergency Routing
+
+Dispatcher manually routes a call to non-emergency line with one click.
+Implementation is covered above in the backend `/route-non-emergency` endpoint
+and frontend Route button in CallGrid.
+
+---
+
+**Checklist:**
+- [x] `CallCategory` type added to `types/index.ts` (backend + frontend)
+- [x] `"ROUTED"` added to `CallStatus` type
+- [x] `category` and `categorySummary` fields added to `CallState`
+- [x] `updateCategory()` and `markRouted()` added to `stateManager.ts`
+- [x] `categorizeCall` function declaration added to `gemini.ts` setup
+- [x] `categorizeCall` added to system prompt instructions
+- [x] `server.ts` handles `categorizeCall` function call from Gemini
+- [x] `SILENT_DISTRESS` triggers AlertBanner (same path as triggerAlert)
+- [x] `/route-non-emergency` POST endpoint working
+- [x] CallGrid shows category badge and summary per call box
+- [x] Route to Non-Emergency button appears and triggers correctly
+- [x] ROUTED calls shown in gray/dimmed
+- [ ] End-to-end test: call comes in → MONITORING → categorized by Gemini → SILENT_DISTRESS triggers alert banner → dispatcher routes to non-emergency
+
+---
+
 ## SHARED TRACKING DOC
 
 ```
@@ -500,7 +607,8 @@ Sprint 1 (Infra):        [ ] Done  Hour: ___
 Sprint 2 (Integration):  [ ] Done  Hour: ___
 Sprint 3 (Detection):    [ ] Done  Hour: ___
 Sprint 4 (Polish):       [ ] Done  Hour: ___
-Sprint 5 (Pitch):        [ ] Done  Hour: ___
+Sprint 5 (Google Features): [ ] Done  Hour: ___
+Sprint 6 (Pitch):        [ ] Done  Hour: ___
 
 KEY URLS
 ========

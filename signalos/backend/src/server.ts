@@ -3,7 +3,14 @@ import { WebSocketServer, WebSocket, RawData } from "ws";
 import { IncomingMessage } from "http";
 import dotenv from "dotenv";
 import { addDashboardClient, getDashboardClientCount, broadcast } from "./broadcaster";
-import { createSession, deleteSession, appendTranscript, markAlert } from "./stateManager";
+import {
+  createSession,
+  deleteSession,
+  appendTranscript,
+  markAlert,
+  updateCategory,
+  markRouted,
+} from "./stateManager";
 import {
   openGeminiSession,
   sendAudioToGemini,
@@ -12,7 +19,7 @@ import {
   GeminiResponse,
 } from "./gemini";
 import { twilioChunkToGeminiAudio } from "./utils/transcode";
-import { AlertPayload, AnomalyType } from "./types";
+import { AlertPayload, AnomalyType, CallCategory } from "./types";
 
 dotenv.config();
 
@@ -25,10 +32,51 @@ const VALID_ANOMALY_TYPES: ReadonlySet<string> = new Set([
   "DISTRESS_SOUND",
 ]);
 
+const VALID_CATEGORIES: ReadonlySet<string> = new Set([
+  "NON_EMERGENCY",
+  "MEDICAL",
+  "TRAFFIC",
+  "FIRE_HAZARD",
+  "CRIME",
+  "SILENT_DISTRESS",
+]);
+
 // ─── HTTP server (required by Railway health checks) ─────────────────────────
 
 const httpServer = http.createServer(
-  (_req: http.IncomingMessage, res: http.ServerResponse) => {
+  (req: http.IncomingMessage, res: http.ServerResponse) => {
+    if (req.method === "POST" && req.url === "/route-non-emergency") {
+      let body = "";
+      req.on("data", (chunk: Buffer) => {
+        body += chunk.toString();
+      });
+      req.on("end", () => {
+        try {
+          const parsed = JSON.parse(body) as { callId?: unknown };
+          const callId = parsed.callId;
+          if (typeof callId !== "string" || !callId) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "callId is required" }));
+            return;
+          }
+          const updated = markRouted(callId);
+          if (!updated) {
+            res.writeHead(404, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Session not found" }));
+            return;
+          }
+          broadcast({ type: "STATE_UPDATE", payload: updated });
+          console.log(`[Route] callId: ${callId} routed to non-emergency`);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true }));
+        } catch {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid JSON" }));
+        }
+      });
+      return;
+    }
+
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("SignalOS backend is running\n");
   }
@@ -71,6 +119,54 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
   }
 
   if (response.type === "functionCall") {
+    if (response.name === "categorizeCall") {
+      const { category, confidence, summary } = response.args;
+
+      if (
+        typeof category !== "string" ||
+        !VALID_CATEGORIES.has(category) ||
+        typeof confidence !== "number" ||
+        typeof summary !== "string"
+      ) {
+        console.warn(
+          `[Category] Invalid categorizeCall args for callId: ${callId}`,
+          response.args
+        );
+        return;
+      }
+
+      console.log(
+        `[Category] categorizeCall fired — callId: ${callId} | category: ${category} | confidence: ${(confidence * 100).toFixed(0)}% | summary: "${summary}"`
+      );
+
+      const updatedState = updateCategory(
+        callId,
+        category as CallCategory,
+        summary
+      );
+      if (updatedState) {
+        broadcast({ type: "STATE_UPDATE", payload: updatedState });
+      }
+
+      if (category === "SILENT_DISTRESS") {
+        console.log(
+          `[SILENT DISTRESS] callId: ${callId} | confidence: ${(confidence * 100).toFixed(0)}% | summary: "${summary}"`
+        );
+        const alertPayload: AlertPayload = {
+          callId,
+          anomalyType: "WHISPER",
+          confidence,
+          transcript: summary,
+          suggestedResponse:
+            "Silent Distress detected — dispatcher attention required",
+          timestamp: new Date(),
+        };
+        markAlert(callId, alertPayload);
+        broadcast({ type: "ALERT", payload: alertPayload });
+      }
+      return;
+    }
+
     if (response.name !== "triggerAlert") {
       console.warn(
         `[Alert] Unknown function call: ${response.name} for callId: ${callId} — ignoring`

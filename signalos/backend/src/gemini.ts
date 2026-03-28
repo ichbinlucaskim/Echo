@@ -78,7 +78,7 @@ interface GeminiRealtimeInput {
 
 type GeminiOutboundMessage = GeminiSetupMessage | GeminiRealtimeInput;
 
-// ─── triggerAlert function declaration ───────────────────────────────────────
+// ─── Function declarations ────────────────────────────────────────────────────
 
 const TRIGGER_ALERT_DECLARATION: FunctionDeclaration = {
   name: "triggerAlert",
@@ -101,6 +101,35 @@ const TRIGGER_ALERT_DECLARATION: FunctionDeclaration = {
       },
     },
     required: ["anomalyType", "confidence", "transcript", "suggestedResponse"],
+  },
+};
+
+const CATEGORIZE_CALL_DECLARATION: FunctionDeclaration = {
+  name: "categorizeCall",
+  description:
+    "Categorize the call based on its audio content. Call exactly once after 15-20 seconds of audio.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      category: {
+        type: "STRING",
+        enum: [
+          "NON_EMERGENCY",
+          "MEDICAL",
+          "TRAFFIC",
+          "FIRE_HAZARD",
+          "CRIME",
+          "SILENT_DISTRESS",
+        ],
+      },
+      confidence: {
+        type: "NUMBER",
+      },
+      summary: {
+        type: "STRING",
+      },
+    },
+    required: ["category", "confidence", "summary"],
   },
 };
 
@@ -174,7 +203,10 @@ class GeminiLiveSession {
             },
             tools: [
               {
-                functionDeclarations: [TRIGGER_ALERT_DECLARATION],
+                functionDeclarations: [
+                  TRIGGER_ALERT_DECLARATION,
+                  CATEGORIZE_CALL_DECLARATION,
+                ],
               },
             ],
             generationConfig: {
