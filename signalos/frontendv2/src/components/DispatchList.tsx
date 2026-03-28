@@ -2,22 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { getSupabase } from "../lib/supabase";
+import {
+  OFFICER_STATUS_BADGE_CLASSES,
+  normalizeOfficerStatus,
+  type OfficerStatus,
+} from "../lib/officerStatus";
 
 interface Officer {
   id: string;
   name: string;
   code: string;
   officer_id: string;
-  status: "available" | "busy" | "critical" | "unavailable";
+  status: OfficerStatus;
   location: string;
 }
-
-const STATUS_STYLES: Record<string, string> = {
-  available: "bg-green-500/20 text-green-400 border border-green-500/30",
-  busy: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
-  critical: "bg-red-500/20 text-red-400 border border-red-500/30",
-  unavailable: "bg-gray-500/20 text-gray-400 border border-gray-500/30",
-};
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -108,7 +106,9 @@ export default function DispatchList() {
                 </tr>
               </thead>
               <tbody>
-                {officers.map((officer) => (
+                {officers.map((officer) => {
+                  const statusKey = normalizeOfficerStatus(String(officer.status));
+                  return (
                   <tr
                     key={officer.id}
                     className="border-t border-white/5 text-[15px]"
@@ -122,16 +122,16 @@ export default function DispatchList() {
                     <td className="py-4 pr-4">
                       <span
                         className={`inline-block text-[12px] font-semibold px-2.5 py-1 rounded-md ${
-                          STATUS_STYLES[officer.status] ??
-                          STATUS_STYLES.unavailable
+                          OFFICER_STATUS_BADGE_CLASSES[statusKey]
                         }`}
                       >
-                        {capitalize(officer.status)}
+                        {capitalize(statusKey)}
                       </span>
                     </td>
                     <td className="py-4 text-gray-300">{officer.location}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
