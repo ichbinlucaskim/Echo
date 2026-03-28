@@ -7,48 +7,66 @@
 
 ---
 
+## STATUS
+
+**Current sprint:** Sprint 4 complete — entering Sprint 5 (Pitch + Submission)
+
+**Live infrastructure:**
+- Backend: `wss://echo-production-4d59.up.railway.app` (Railway, deployed)
+- Frontend: Vercel (deployed, connected to backend via `.env.local`)
+- Twilio → Railway pipe: confirmed working end-to-end
+- Gemini triggerAlert function calling: confirmed firing at ≥85% confidence (WHISPER detected at 92%)
+
+**Remaining before pitch:**
+- [ ] Place audio sample files in `audio/samples/` and confirm `npm run simulate` runs 5 streams
+- [ ] Vercel deployment URL confirmed working end-to-end in browser
+- [ ] End-to-end demo run: phone → whisper → alert banner appears in browser
+- [ ] Sprint 5 pitch prep (script, slides, backup video)
+
+---
+
 ## MASTER CHECKLIST
 
 ### ✅ Phase 0 — Setup `[Hour 0–1]`
-- [ ] GitHub repo created, all team members added
-- [ ] Railway account set up (backend hosting)
-- [ ] Vercel account set up (frontend hosting)
-- [ ] Twilio account set up — phone number purchased
-- [ ] Gemini API key generated and tested
-- [ ] Node.js and Next.js environments confirmed on all machines
-- [ ] Team roles confirmed (see Role Distribution below)
-- [ ] Shared tracking doc open
+- [x] GitHub repo created, all team members added
+- [x] Railway account set up (backend hosting)
+- [x] Vercel account set up (frontend hosting)
+- [x] Twilio account set up — phone number purchased
+- [x] Gemini API key generated and tested
+- [x] Node.js and Next.js environments confirmed on all machines
+- [x] Team roles confirmed (see Role Distribution below)
+- [x] Shared tracking doc open
 
 ### ✅ Phase 1 — Infrastructure `[Hour 1–4]`
-- [ ] Twilio number connected to TwiML — incoming calls accepted
-- [ ] Twilio Media Stream forking to WebSocket confirmed
-- [ ] Node.js WebSocket server running on Railway with public `wss://` endpoint
-- [ ] Gemini Live API session opens successfully (test with local .wav file)
-- [ ] Next.js app scaffolded and deployed to Vercel (static shell only)
-- [ ] 6-line dispatcher UI grid rendered (5 simulated + 1 live placeholder)
+- [x] Twilio number connected to TwiML — incoming calls accepted
+- [x] Twilio Media Stream forking to WebSocket confirmed
+- [x] Node.js WebSocket server running on Railway with public `wss://` endpoint
+- [x] Gemini Live API session opens successfully (test with local .wav file)
+- [x] Next.js app scaffolded and deployed to Vercel (static shell only)
+- [x] 6-line dispatcher UI grid rendered (5 simulated + 1 live placeholder)
 
 ### ✅ Phase 2 — Core Integration `[Hour 4–8]`
-- [ ] Twilio audio chunks (base64) successfully piped into Gemini Live API session
-- [ ] Gemini returning responses (text or function call) for live audio input
-- [ ] State manager handling session data per call (Call ID, status, confidence, transcript)
-- [ ] Backend broadcasting state updates to frontend via WebSocket
-- [ ] Frontend rendering live transcript from Gemini output
-- [ ] Raw alert payload reaching the frontend (even unstyled)
+- [x] Twilio audio chunks (base64) successfully piped into Gemini Live API session
+- [x] Gemini returning responses (text or function call) for live audio input
+- [x] State manager handling session data per call (Call ID, status, confidence, transcript)
+- [x] Backend broadcasting state updates to frontend via WebSocket
+- [x] Frontend rendering live transcript from Gemini output
+- [x] Raw alert payload reaching the frontend (even unstyled)
 
 ### ✅ Phase 3 — Detection Logic + Simulation `[Hour 8–13]`
-- [ ] System prompt finalized — Gemini instructed to detect: whisper, slur, gasp, background alarm
-- [ ] Function calling configured — Gemini fires structured alert when confidence ≥ 85%
-- [ ] Alert payload structure confirmed: `{ callId, type, confidence, suggestedResponse }`
+- [x] System prompt finalized — Gemini instructed to detect: whisper, slur, gasp, background alarm
+- [x] Function calling configured — Gemini fires structured alert when confidence ≥ 85%
+- [x] Alert payload structure confirmed: `{ callId, type, confidence, suggestedResponse }`
 - [ ] Simulation script running — 5 fake "normal" audio streams looping to server
 - [ ] Server handling 5 simulated + 1 live Twilio stream simultaneously without crash
 - [ ] No stream data crossing between sessions (isolation confirmed)
 
 ### ✅ Phase 4 — UI Polish + Demo Prep `[Hour 13–18]`
-- [ ] Alert banner styled — red, full-width, auto-dismisses after acknowledgment
-- [ ] Call grid shows per-line status: `ACTIVE / ON-HOLD / ALERT`
-- [ ] Incident report panel auto-fills in real time from transcript
-- [ ] Confidence score visible on alert (`85% — whisper pattern detected`)
-- [ ] Suggested dispatcher response shown on alert (`"Is it safe to talk?"`)
+- [x] Alert banner styled — red, full-width, auto-dismisses after acknowledgment
+- [x] Call grid shows per-line status: `ACTIVE / ON-HOLD / ALERT`
+- [x] Incident report panel auto-fills in real time from transcript
+- [x] Confidence score visible on alert (`85% — whisper pattern detected`)
+- [x] Suggested dispatcher response shown on alert (`"Is it safe to talk?"`)
 - [ ] End-to-end demo flow confirmed: dial number → whisper → alert fires → banner appears
 - [ ] Latency under 10 seconds from whisper to alert
 
