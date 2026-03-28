@@ -162,11 +162,11 @@ export default function ActiveCallSession() {
       {/* Main: grid fills space down to the control row; side columns stretch with the center */}
       <div className="flex-1 flex flex-col min-h-0 px-5 md:px-8 pb-4">
         <div
-          className="flex-1 min-h-0 grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)_minmax(0,380px)] lg:grid-rows-1 lg:items-stretch lg:gap-8"
+          className="flex-1 min-h-0 grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)_minmax(0,320px)] lg:grid-rows-1 lg:items-stretch lg:gap-8"
         >
           {/* Left: Nearest Police — same column height as right; bottom aligns with transcript card */}
           <section
-            className={`order-2 lg:order-1 flex h-full min-h-[280px] flex-col lg:min-h-0 ${cardRadius} border border-gray-200 bg-white p-5 shadow-sm md:p-6`}
+            className={`order-2 lg:order-1 flex h-full min-h-[280px] w-full min-w-0 flex-col lg:min-h-0 ${cardRadius} border border-gray-200 bg-white p-5 shadow-sm md:p-6`}
           >
             <NearestPolice />
           </section>
@@ -185,10 +185,10 @@ export default function ActiveCallSession() {
             </div>
           </div>
 
-          {/* Right: category + long transcript column (transcript flex-1 fills to match left column) */}
-          <div className="order-3 flex h-full min-h-[360px] flex-col gap-4 lg:min-h-0 lg:flex-1">
+          {/* Right: same track width as Nearest Police (320px) so center waveform is visually centered */}
+          <div className="order-3 flex h-full min-h-[360px] w-full min-w-0 flex-col gap-4 lg:min-h-0 lg:flex-1">
             <section
-              className={`${cardRadius} bg-white p-5 md:p-6 shrink-0 border-2 shadow-sm`}
+              className={`w-full min-w-0 ${cardRadius} bg-white p-5 md:p-6 shrink-0 border-2 shadow-sm`}
               style={{
                 borderColor: highSeverity ? C.alertRed : categoryColor,
               }}
@@ -210,7 +210,7 @@ export default function ActiveCallSession() {
             </section>
 
             <section
-              className={`${cardRadius} bg-white p-5 md:p-6 flex-1 flex flex-col min-h-0 border border-gray-200 shadow-sm`}
+              className={`w-full min-w-0 ${cardRadius} bg-white p-5 md:p-6 flex flex-1 flex-col min-h-0 border border-gray-200 shadow-sm`}
             >
               <h3 className="font-bold text-[17px] text-black mb-4 tracking-tight shrink-0">
                 Live Transcript
