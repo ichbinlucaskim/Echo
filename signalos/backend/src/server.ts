@@ -131,9 +131,16 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
     if (!session) return;
     if (session.muted || session.onHold) return;
 
-    // Gemini speaking = critical situation detected. Trigger alert if not already.
-    if (session.status !== "ALERT") {
-      console.log(`[ALERT] Gemini spoke audio for callId: ${callId} — triggering alert`);
+    // Gemini speaking means it detected a critical anomaly (per system prompt,
+    // the ONLY reason it speaks is "Urgent caller: <name>").
+    // Only escalate if the call is already categorized as high-severity;
+    // non-emergency calls (e.g. broken street light) should not trigger alerts
+    // even if Gemini produces spurious audio.
+    const ALERT_ELIGIBLE: ReadonlySet<string> = new Set([
+      "MEDICAL", "CRIME", "FIRE_HAZARD", "SILENT_DISTRESS",
+    ]);
+    if (session.status !== "ALERT" && ALERT_ELIGIBLE.has(session.category)) {
+      console.log(`[ALERT] Gemini spoke audio for callId: ${callId} (category: ${session.category}) — triggering alert`);
       const callerName = CALLER_NAMES[callId] ?? DEFAULT_CALLER_NAME;
       const alertPayload: AlertPayload = {
         callId,
@@ -146,6 +153,8 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
       markAlert(callId, alertPayload);
       broadcast({ type: "STATE_UPDATE", payload: { ...session, status: "ALERT" } });
       broadcast({ type: "ALERT", payload: alertPayload });
+    } else if (session.status !== "ALERT") {
+      console.log(`[Gemini] Audio ignored for callId: ${callId} — category "${session.category}" is not alert-eligible`);
     }
 
     broadcast({
