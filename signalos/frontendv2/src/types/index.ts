@@ -39,10 +39,12 @@ export type BroadcastMessage =
   | { type: "STATE_UPDATE"; payload: CallState }
   | { type: "ALERT"; payload: AlertPayload }
   | { type: "AUDIO_CHUNK"; payload: AudioChunkPayload }
-  | { type: "CALL_ENDED"; payload: { callId: string } };
+  | { type: "CALL_ENDED"; payload: { callId: string } }
+  | { type: "SELECTION_UPDATE"; payload: { callId: string | null } };
 
 /** Commands: dashboard WebSocket → backend (same shape as server). */
 export type DashboardCommand =
   | { type: "SET_MUTE"; callId: string; muted: boolean }
   | { type: "SET_HOLD"; callId: string; onHold: boolean }
-  | { type: "END_CALL"; callId: string };
+  | { type: "END_CALL"; callId: string }
+  | { type: "SELECT_CALL"; callId: string | null };

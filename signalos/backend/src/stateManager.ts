@@ -1,6 +1,17 @@
 import { CallState, CallStatus, CallCategory, AlertPayload } from "./types";
 
 const sessions = new Map<string, CallState>();
+let selectedCallId: string | null = null;
+
+export function getSelectedCallId(): string | null {
+  return selectedCallId;
+}
+
+export function setSelectedCallId(callId: string | null): string | null {
+  selectedCallId = callId;
+  console.log(`[StateManager] Selection updated — callId: ${callId}`);
+  return selectedCallId;
+}
 
 export function createSession(callId: string): CallState {
   const state: CallState = {

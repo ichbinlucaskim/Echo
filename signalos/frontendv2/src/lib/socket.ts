@@ -45,12 +45,14 @@ export interface SignalOSState {
   dismissAlert: () => void;
   connected: boolean;
   sendCommand: (cmd: DashboardCommand) => void;
+  selectedCallId: string | null;
 }
 
 export function useSignalOS(): SignalOSState {
   const [calls, setCalls] = useState<Record<string, CallState>>({});
   const [activeAlert, setActiveAlert] = useState<AlertPayload | null>(null);
   const [connected, setConnected] = useState(false);
+  const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -192,6 +194,8 @@ export function useSignalOS(): SignalOSState {
           });
           setActiveAlert((a) => (a?.callId === callId ? null : a));
           delete nextPlayTimeRef.current[callId];
+        } else if (message.type === "SELECTION_UPDATE") {
+          setSelectedCallId(message.payload.callId);
         }
       } catch (err) {
         console.error("[SignalOS] Failed to parse WebSocket message:", err);
@@ -242,5 +246,6 @@ export function useSignalOS(): SignalOSState {
     dismissAlert,
     connected,
     sendCommand,
+    selectedCallId,
   };
 }

@@ -3,7 +3,6 @@
 import { ArrowRight, Mic, MicOff, Phone, PhoneOff, X } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useSelectedCall } from "../context/SelectedCallContext";
 import { useSignalOSContext } from "../context/SignalOSContext";
 import AudioWaveform from "./AudioWaveform";
 
@@ -58,14 +57,13 @@ function stressLabel(pct: number): string {
 const cardRadius = "rounded-[14px]";
 
 export default function ActiveCallSession() {
-  const { selectedCallId, clearSelection } = useSelectedCall();
-  const { calls, activeAlert, dismissAlert, connected, sendCommand } =
+  const { calls, activeAlert, dismissAlert, connected, sendCommand, selectedCallId } =
     useSignalOSContext();
   const router = useRouter();
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const goBack = () => {
-    clearSelection();
+    sendCommand({ type: "SELECT_CALL", callId: null });
     router.push("/");
   };
 

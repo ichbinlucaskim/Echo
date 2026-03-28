@@ -41,4 +41,5 @@ export type BroadcastMessage =
   | { type: "STATE_UPDATE"; payload: CallState }
   | { type: "ALERT"; payload: AlertPayload }
   | { type: "AUDIO_CHUNK"; payload: AudioChunkPayload }
-  | { type: "CALL_ENDED"; payload: { callId: string } };
+  | { type: "CALL_ENDED"; payload: { callId: string } }
+  | { type: "SELECTION_UPDATE"; payload: { callId: string | null } };

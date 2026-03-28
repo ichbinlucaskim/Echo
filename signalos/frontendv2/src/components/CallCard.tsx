@@ -2,7 +2,7 @@ import { Phone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CallState } from "../types";
-import { useSelectedCall } from "../context/SelectedCallContext";
+import { useSignalOSContext } from "../context/SignalOSContext";
 
 interface CallCardProps {
   call: CallState;
@@ -33,7 +33,7 @@ function formatCategory(cat: string): string {
 
 export default function CallCard({ call }: CallCardProps) {
   const [duration, setDuration] = useState("0:00");
-  const { selectedCallId, selectCall } = useSelectedCall();
+  const { selectedCallId, sendCommand } = useSignalOSContext();
   const router = useRouter();
 
   const isAlert = call.status === "ALERT";
@@ -78,7 +78,7 @@ export default function CallCard({ call }: CallCardProps) {
       type="button"
       className={`w-full text-left flex flex-col border ${ringColor} ${selectionAccent} rounded-xl overflow-hidden transition-all duration-300 backdrop-blur-md cursor-pointer hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/80`}
       onClick={() => {
-        selectCall(call.callId);
+        sendCommand({ type: "SELECT_CALL", callId: call.callId });
         router.push(`/call/${call.callId}`);
       }}
     >

@@ -14,6 +14,8 @@ import {
   getSession,
   setMuted,
   setCallHold,
+  getSelectedCallId,
+  setSelectedCallId,
 } from "./stateManager";
 import { hangupCall, redirectCall } from "./twilioVoice";
 import {
@@ -426,12 +428,18 @@ twilioWss.on("connection", (ws: WebSocket) => {
 type DashboardInbound =
   | { type: "SET_MUTE"; callId: string; muted: boolean }
   | { type: "SET_HOLD"; callId: string; onHold: boolean }
-  | { type: "END_CALL"; callId: string };
+  | { type: "END_CALL"; callId: string }
+  | { type: "SELECT_CALL"; callId: string | null };
 
 function parseDashboardInbound(data: unknown): DashboardInbound | null {
   if (!data || typeof data !== "object") return null;
   const o = data as Record<string, unknown>;
-  if (typeof o.type !== "string" || typeof o.callId !== "string" || !o.callId) {
+  if (typeof o.type !== "string") return null;
+  // SELECT_CALL allows null callId (deselect); all others require a string callId
+  if (o.type === "SELECT_CALL") {
+    return { type: "SELECT_CALL", callId: typeof o.callId === "string" ? o.callId : null };
+  }
+  if (typeof o.callId !== "string" || !o.callId) {
     return null;
   }
   switch (o.type) {
@@ -488,7 +496,17 @@ function handleDashboardCommand(raw: RawData): void {
         closeGeminiSession(cmd.callId);
         deleteSession(cmd.callId);
         broadcast({ type: "CALL_ENDED", payload: { callId: cmd.callId } });
+        // Clear selection if the ended call was selected
+        if (getSelectedCallId() === cmd.callId) {
+          setSelectedCallId(null);
+          broadcast({ type: "SELECTION_UPDATE", payload: { callId: null } });
+        }
       })();
+      break;
+    }
+    case "SELECT_CALL": {
+      setSelectedCallId(cmd.callId);
+      broadcast({ type: "SELECTION_UPDATE", payload: { callId: cmd.callId } });
       break;
     }
   }
@@ -507,6 +525,11 @@ dashboardWss.on("connection", (ws: WebSocket) => {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "STATE_UPDATE", payload: state }));
     }
+  }
+  // Send current selection state
+  const currentSelection = getSelectedCallId();
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "SELECTION_UPDATE", payload: { callId: currentSelection } }));
   }
 
   ws.on("message", (raw: RawData) => {
