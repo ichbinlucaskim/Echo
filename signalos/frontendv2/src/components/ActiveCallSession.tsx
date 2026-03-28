@@ -69,11 +69,20 @@ export default function ActiveCallSession() {
 
   const name = call ? MOCK_NAMES[call.callId] ?? DEFAULT_NAME : DEFAULT_NAME;
   const isAlert = call?.status === "ALERT";
-  const alertForCall =
-    activeAlert?.callId === selectedCallId ? activeAlert : null;
-  const showAlertBar = Boolean(call && (isAlert || alertForCall));
 
-  // Use real category from backend
+  // Red bar on every call screen when this line or any other line is in emergency alert
+  const alertingCallId =
+    activeAlert?.callId ?? (call?.status === "ALERT" ? call.callId : null);
+  const showAlertBar = Boolean(call && alertingCallId !== null);
+
+  const barCall = alertingCallId ? calls[alertingCallId] : undefined;
+  const barName = alertingCallId
+    ? MOCK_NAMES[alertingCallId] ?? DEFAULT_NAME
+    : name;
+  const barCategory = barCall?.category ?? "MONITORING";
+  const barCategoryLabel = CATEGORY_LABELS[barCategory] ?? barCategory;
+
+  // Use real category from backend (main UI)
   const category = call?.category ?? "MONITORING";
   const categoryLabel = CATEGORY_LABELS[category] ?? category;
   const categorySummary = call?.categorySummary ?? "";
@@ -143,7 +152,13 @@ export default function ActiveCallSession() {
                 </span>
                 <span className="text-white font-normal">
                   {" "}
-                  {name} needs attention. (Category: {categoryLabel})
+                  {barName} needs attention. (Category: {barCategoryLabel})
+                  {alertingCallId !== selectedCallId && (
+                    <span className="text-white/70">
+                      {" "}
+                      — you are on {name}
+                    </span>
+                  )}
                 </span>
               </p>
             </div>
