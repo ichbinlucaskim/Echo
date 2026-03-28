@@ -27,39 +27,21 @@ const CATEGORY_COLORS: Record<string, string> = {
   MONITORING: "bg-white/10 text-gray-500 border-white/10",
 };
 
-const CATEGORY_BASE_STRESS: Record<string, number> = {
-  MONITORING: 0,
-  NON_EMERGENCY: 10,
-  TRAFFIC: 40,
-  MEDICAL: 60,
-  FIRE_HAZARD: 75,
-  CRIME: 85,
-  SILENT_DISTRESS: 95,
-};
-
-function computeStress(category: string, categoryConfidence: number, isAlert: boolean): number {
-  if (isAlert) return 80;
-  const base = CATEGORY_BASE_STRESS[category] ?? 0;
-  if (base === 0 || categoryConfidence === 0) return 0;
-  return Math.min(99, Math.round(base * categoryConfidence));
-}
-
 function formatCategory(cat: string): string {
   return cat.replace(/_/g, " ");
 }
 
 export default function CallCard({ call }: CallCardProps) {
   const [duration, setDuration] = useState("0:00");
-  const { selectedCallId, sendCommand } = useSignalOSContext();
+  const { selectedCallId, sendCommand, activeAlert } = useSignalOSContext();
   const router = useRouter();
 
   const isAlert = call.status === "ALERT";
+  const isCritical = isAlert || activeAlert?.callId === call.callId;
   const isOnHold = call.status === "ON-HOLD" || call.onHold;
   const isSelected = selectedCallId === call.callId;
   const name = MOCK_NAMES[call.callId] || DEFAULT_NAME;
   const category = call.category ?? "MONITORING";
-  const stress = computeStress(category, call.categoryConfidence ?? 0, isAlert);
-  const isHighStress = stress >= 45;
 
   useEffect(() => {
     const start = new Date(call.startedAt);
@@ -78,7 +60,7 @@ export default function CallCard({ call }: CallCardProps) {
   let ringColor = "border-[#1c447a] bg-[#0d1f3b]/30 text-[#4c90f0]";
   let selectionAccent = "";
 
-  if (isAlert || isHighStress) {
+  if (isCritical) {
     ringColor = "border-red-600 bg-red-900/30 text-red-500";
     if (isSelected) {
       selectionAccent =
