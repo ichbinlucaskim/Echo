@@ -1,4 +1,4 @@
-import { CallState, CallStatus } from "./types";
+import { CallState, CallStatus, AlertPayload } from "./types";
 
 const sessions = new Map<string, CallState>();
 
@@ -10,7 +10,9 @@ export function createSession(callId: string): CallState {
     startedAt: new Date(),
   };
   sessions.set(callId, state);
-  console.log(`[StateManager] Session created — callId: ${callId} | total sessions: ${sessions.size}`);
+  console.log(
+    `[StateManager] Session created — callId: ${callId} | total sessions: ${sessions.size}`
+  );
   return state;
 }
 
@@ -29,9 +31,48 @@ export function updateSession(
   return updated;
 }
 
+// Appends a Gemini text chunk to the rolling transcript.
+// Returns the updated CallState, or null if the session doesn't exist.
+export function appendTranscript(
+  callId: string,
+  text: string
+): CallState | null {
+  const existing = sessions.get(callId);
+  if (!existing) return null;
+
+  const updated: CallState = {
+    ...existing,
+    transcript: existing.transcript
+      ? `${existing.transcript} ${text}`
+      : text,
+  };
+  sessions.set(callId, updated);
+  return updated;
+}
+
+// Marks a session as ALERT and records the alert payload in the transcript.
+// Returns the updated CallState, or null if the session doesn't exist.
+export function markAlert(
+  callId: string,
+  alert: AlertPayload
+): CallState | null {
+  const existing = sessions.get(callId);
+  if (!existing) return null;
+
+  const updated: CallState = {
+    ...existing,
+    status: "ALERT",
+    transcript: alert.transcript,
+  };
+  sessions.set(callId, updated);
+  return updated;
+}
+
 export function deleteSession(callId: string): void {
   sessions.delete(callId);
-  console.log(`[StateManager] Session deleted — callId: ${callId} | total sessions: ${sessions.size}`);
+  console.log(
+    `[StateManager] Session deleted — callId: ${callId} | total sessions: ${sessions.size}`
+  );
 }
 
 export function getSessionCount(): number {
