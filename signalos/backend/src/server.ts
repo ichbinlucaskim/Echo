@@ -276,6 +276,7 @@ type TwilioMessage =
 // ─── Twilio /twilio handler ──────────────────────────────────────────────────
 
 twilioWss.on("connection", (ws: WebSocket) => {
+  
   // Session limit guard — reject if already at capacity
   const currentSessions = getActiveSessionCount();
   if (currentSessions >= MAX_SESSIONS) {
