@@ -145,19 +145,19 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
   if (response.type === "transcription") {
     const label = response.source === "input" ? "Caller" : "AI";
     console.log(`[Gemini→Transcript] ${label} for callId: ${callId} — "${response.text}"`);
-    const updated = appendTranscript(callId, response.text);
-    if (updated) {
-      broadcast({ type: "STATE_UPDATE", payload: updated });
+    // Only append caller speech to the transcript, not Gemini output
+    if (response.source === "input") {
+      const updated = appendTranscript(callId, response.text);
+      if (updated) {
+        broadcast({ type: "STATE_UPDATE", payload: updated });
+      }
     }
     return;
   }
 
   if (response.type === "text") {
+    // Log Gemini text but don't add it to the caller transcript
     console.log(`[Gemini→State] Text for callId: ${callId} — "${response.text}"`);
-    const updated = appendTranscript(callId, response.text);
-    if (updated) {
-      broadcast({ type: "STATE_UPDATE", payload: updated });
-    }
     return;
   }
 
@@ -204,17 +204,26 @@ function onGeminiResponse(callId: string, response: GeminiResponse): void {
         return;
       }
 
-      if (category === "SILENT_DISTRESS") {
+      // Auto-trigger alert for high-severity categories
+      const ALERT_CATEGORIES: Record<string, { anomalyType: AnomalyType; label: string }> = {
+        SILENT_DISTRESS: { anomalyType: "WHISPER", label: "Silent Distress" },
+        CRIME: { anomalyType: "DISTRESS_SOUND", label: "Crime" },
+        FIRE_HAZARD: { anomalyType: "DISTRESS_SOUND", label: "Fire Hazard" },
+        MEDICAL: { anomalyType: "STROKE", label: "Medical Emergency" },
+      };
+
+      const alertInfo = ALERT_CATEGORIES[category];
+      if (alertInfo && confidence >= 0.5) {
         console.log(
-          `[SILENT DISTRESS] callId: ${callId} | confidence: ${(confidence * 100).toFixed(0)}% | summary: "${summary}"`
+          `[ALERT] ${alertInfo.label} callId: ${callId} | confidence: ${(confidence * 100).toFixed(0)}% | summary: "${summary}"`
         );
         const alertPayload: AlertPayload = {
           callId,
-          anomalyType: "WHISPER",
+          anomalyType: alertInfo.anomalyType,
           confidence,
           transcript: summary,
           suggestedResponse:
-            "Silent Distress detected — dispatcher attention required",
+            `${alertInfo.label} detected — dispatcher attention required`,
           timestamp: new Date(),
         };
         markAlert(callId, alertPayload);
