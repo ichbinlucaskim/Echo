@@ -2,7 +2,7 @@
 
 import { useJsApiLoader, GoogleMap, Marker } from "@react-google-maps/api";
 import { useMemo } from "react";
-import { useSignalOS } from "../lib/socket";
+import { useSignalOSContext } from "../context/SignalOSContext";
 
 const MAP_OPTIONS = {
   disableDefaultUI: true,
@@ -103,7 +103,7 @@ const MOCK_CALL_LOCATIONS: Record<string, { lat: number; lng: number }> = {
 };
 
 export default function GoogleMapBackground() {
-  const { calls } = useSignalOS();
+  const { calls } = useSignalOSContext();
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
     libraries: LIBRARIES,

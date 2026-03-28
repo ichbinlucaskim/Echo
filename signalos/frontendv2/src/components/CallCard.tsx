@@ -16,6 +16,20 @@ const MOCK_NAMES: Record<string, string> = {
 };
 const DEFAULT_NAME = "Liam Thompson";
 
+const CATEGORY_COLORS: Record<string, string> = {
+  MEDICAL: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  CRIME: "bg-red-500/20 text-red-400 border-red-500/30",
+  FIRE_HAZARD: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  TRAFFIC: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+  NON_EMERGENCY: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+  SILENT_DISTRESS: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  MONITORING: "bg-white/10 text-gray-500 border-white/10",
+};
+
+function formatCategory(cat: string): string {
+  return cat.replace(/_/g, " ");
+}
+
 export default function CallCard({ call }: CallCardProps) {
   const [duration, setDuration] = useState("0:00");
   const { selectedCallId, selectCall } = useSelectedCall();
@@ -23,6 +37,7 @@ export default function CallCard({ call }: CallCardProps) {
   const isAlert = call.status === "ALERT";
   const isSelected = selectedCallId === call.callId;
   const name = MOCK_NAMES[call.callId] || DEFAULT_NAME;
+  const category = call.category ?? "MONITORING";
 
   useEffect(() => {
     const start = new Date(call.startedAt);
@@ -60,6 +75,21 @@ export default function CallCard({ call }: CallCardProps) {
         <span className="font-mono text-[14px] font-medium tracking-wider tabular-nums">
           {duration}
         </span>
+      </div>
+
+      {/* Category badge + transcript preview */}
+      <div className="px-5 pb-3 flex flex-col gap-2">
+        <span
+          className={`inline-block self-start text-[11px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${CATEGORY_COLORS[category] ?? CATEGORY_COLORS.MONITORING}`}
+        >
+          {formatCategory(category)}
+        </span>
+
+        {call.transcript && (
+          <p className="text-gray-400 text-[12px] leading-relaxed line-clamp-2 font-mono">
+            {call.transcript.slice(-120)}
+          </p>
+        )}
       </div>
     </button>
   );

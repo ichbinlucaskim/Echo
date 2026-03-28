@@ -1,8 +1,8 @@
 import CallCard from "./CallCard";
-import { useSignalOS } from "../lib/socket";
+import { useSignalOSContext } from "../context/SignalOSContext";
 
 export default function Sidebar() {
-  const { calls } = useSignalOS();
+  const { calls } = useSignalOSContext();
 
   // Convert map to array and sort: ALERTS first, then by start date
   const sortedCalls = Object.values(calls).sort((a, b) => {
