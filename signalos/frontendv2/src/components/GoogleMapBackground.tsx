@@ -4,7 +4,10 @@ import { useJsApiLoader, GoogleMap, Marker } from "@react-google-maps/api";
 import { useEffect, useMemo, useState } from "react";
 import { useSignalOSContext } from "../context/SignalOSContext";
 import { getSupabase } from "../lib/supabase";
-import { officerGoogleMapsPinUrl } from "../lib/officerStatus";
+import {
+  normalizeOfficerStatus,
+  officerGoogleMapsPinUrl,
+} from "../lib/officerStatus";
 
 interface Officer {
   id: string;
@@ -222,6 +225,7 @@ export default function GoogleMapBackground() {
         {/* Officer pins — color by status (see officerStatus.ts) */}
         {officers
           .filter((o) => o.lat !== 0 && o.lng !== 0)
+          .filter((o) => normalizeOfficerStatus(o.status) !== "unavailable")
           .map((officer) => (
             <Marker
               key={`officer-${officer.id}`}
