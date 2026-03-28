@@ -5,6 +5,8 @@ import { CallState, CallStatus, CallCategory } from "../types";
 
 interface CallGridProps {
   calls: Record<string, CallState>;
+  /** From dashboard WebSocket — drives empty-state copy */
+  connected: boolean;
   backendUrl: string;
 }
 
@@ -59,6 +61,7 @@ function truncateTranscript(transcript: string): string {
 
 export default function CallGrid({
   calls,
+  connected,
   backendUrl,
 }: CallGridProps): React.JSX.Element {
   const [, setTick] = useState(0);
@@ -73,14 +76,40 @@ export default function CallGrid({
 
   if (callList.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-gray-600 text-sm font-mono">
-        Monitoring active — no calls on hold
+      <div className="flex flex-col items-center justify-center h-48 px-4 text-center font-mono text-sm">
+        {!connected ? (
+          <>
+            <p className="text-amber-500 font-semibold mb-1">
+              Not connected to backend
+            </p>
+            <p className="text-gray-500 text-xs max-w-md">
+              Retrying every few seconds. Check{" "}
+              <code className="text-gray-400">NEXT_PUBLIC_BACKEND_WS_URL</code>{" "}
+              on Vercel and redeploy. Console:{" "}
+              <code className="text-gray-400">[SignalOS]</code> logs.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-green-500/90 font-semibold mb-1">
+              Live — monitoring for calls
+            </p>
+            <p className="text-gray-500 text-xs max-w-md">
+              No active streams yet. When someone dials your Twilio number, a
+              card appears here. Watch the browser console for{" "}
+              <code className="text-gray-400">[SignalOS] STATE_UPDATE</code>{" "}
+              when Twilio sends audio.
+            </p>
+          </>
+        )}
       </div>
     );
   }
 
   function handleRoute(callId: string): void {
-    const httpUrl = backendUrl.replace(/^wss?:\/\//, "https://").replace(/^ws:\/\//, "http://");
+    const httpUrl = backendUrl
+      .replace(/^wss:\/\//, "https://")
+      .replace(/^ws:\/\//, "http://");
     fetch(`${httpUrl}/route-non-emergency`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -91,90 +120,96 @@ export default function CallGrid({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-4">
-      {callList.map((call) => {
-        const isSilentDistress = call.category === "SILENT_DISTRESS";
-        const isRouted = call.status === "ROUTED";
-        const canRoute =
-          call.status === "ACTIVE" || call.status === "ON-HOLD";
+    <div className="space-y-3">
+      <p className="text-green-500/90 text-xs font-mono font-semibold uppercase tracking-wide">
+        {callList.length} call{callList.length === 1 ? "" : "s"} active — audio
+        streaming to SignalOS
+      </p>
+      <div className="grid grid-cols-3 gap-4">
+        {callList.map((call) => {
+          const isSilentDistress = call.category === "SILENT_DISTRESS";
+          const isRouted = call.status === "ROUTED";
+          const canRoute =
+            call.status === "ACTIVE" || call.status === "ON-HOLD";
 
-        const borderClass = isSilentDistress
-          ? "border-purple-500 ring-1 ring-purple-500/50"
-          : call.status === "ALERT"
-          ? `${BORDER_STYLES[call.status]} ring-1 ring-red-500/50`
-          : BORDER_STYLES[call.status];
+          const borderClass = isSilentDistress
+            ? "border-purple-500 ring-1 ring-purple-500/50"
+            : call.status === "ALERT"
+            ? `${BORDER_STYLES[call.status]} ring-1 ring-red-500/50`
+            : BORDER_STYLES[call.status];
 
-        return (
-          <div
-            key={call.callId}
-            className={`border-2 rounded-lg p-4 bg-gray-800 ${borderClass} ${
-              isRouted ? "opacity-50" : ""
-            }`}
-          >
-            {/* Header row */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                {/* Monitoring pulse dot */}
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-50" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                </span>
-                <span className="text-white font-mono text-sm font-semibold">
-                  ···{call.callId.slice(-6)}
-                </span>
-              </div>
-              <span
-                className={`text-xs px-2 py-0.5 rounded font-mono font-bold ${STATUS_STYLES[call.status]}`}
-              >
-                {call.status}
-              </span>
-            </div>
-
-            {/* Elapsed time */}
-            <div className="text-gray-600 text-xs font-mono mb-2">
-              {formatElapsed(call.startedAt)}
-            </div>
-
-            {/* Category badge */}
-            <div className="mb-2">
-              <span
-                className={`text-xs px-2 py-0.5 rounded font-mono font-bold ${CATEGORY_STYLES[call.category]}`}
-              >
-                {CATEGORY_LABEL[call.category]}
-              </span>
-              {isSilentDistress && (
-                <p className="text-purple-300 text-xs font-mono mt-1">
-                  Requires immediate attention
-                </p>
-              )}
-              {call.categorySummary && (
-                <p className="text-gray-500 text-xs font-mono mt-1 truncate">
-                  {call.categorySummary}
-                </p>
-              )}
-            </div>
-
-            {/* Rolling transcript */}
-            <div className="text-gray-400 text-xs font-mono leading-relaxed min-h-[2.5rem] border-t border-gray-700 pt-2">
-              {call.transcript
-                ? truncateTranscript(call.transcript)
-                : "Monitoring audio..."}
-            </div>
-
-            {/* Route to Non-Emergency button */}
-            {canRoute && (
-              <div className="mt-3 border-t border-gray-700 pt-3">
-                <button
-                  onClick={() => handleRoute(call.callId)}
-                  className="w-full py-1.5 rounded text-xs font-mono font-bold bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+          return (
+            <div
+              key={call.callId}
+              className={`border-2 rounded-lg p-4 bg-gray-800 ${borderClass} ${
+                isRouted ? "opacity-50" : ""
+              }`}
+            >
+              {/* Header row */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  {/* Monitoring pulse dot */}
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-50" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                  </span>
+                  <span className="text-white font-mono text-sm font-semibold">
+                    ···{call.callId.slice(-6)}
+                  </span>
+                </div>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded font-mono font-bold ${STATUS_STYLES[call.status]}`}
                 >
-                  Route to Non-Emergency
-                </button>
+                  {call.status}
+                </span>
               </div>
-            )}
-          </div>
-        );
-      })}
+
+              {/* Elapsed time */}
+              <div className="text-gray-600 text-xs font-mono mb-2">
+                {formatElapsed(call.startedAt)}
+              </div>
+
+              {/* Category badge */}
+              <div className="mb-2">
+                <span
+                  className={`text-xs px-2 py-0.5 rounded font-mono font-bold ${CATEGORY_STYLES[call.category]}`}
+                >
+                  {CATEGORY_LABEL[call.category]}
+                </span>
+                {isSilentDistress && (
+                  <p className="text-purple-300 text-xs font-mono mt-1">
+                    Requires immediate attention
+                  </p>
+                )}
+                {call.categorySummary && (
+                  <p className="text-gray-500 text-xs font-mono mt-1 truncate">
+                    {call.categorySummary}
+                  </p>
+                )}
+              </div>
+
+              {/* Rolling transcript */}
+              <div className="text-gray-400 text-xs font-mono leading-relaxed min-h-[2.5rem] border-t border-gray-700 pt-2">
+                {call.transcript
+                  ? truncateTranscript(call.transcript)
+                  : "Monitoring audio..."}
+              </div>
+
+              {/* Route to Non-Emergency button */}
+              {canRoute && (
+                <div className="mt-3 border-t border-gray-700 pt-3">
+                  <button
+                    onClick={() => handleRoute(call.callId)}
+                    className="w-full py-1.5 rounded text-xs font-mono font-bold bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+                  >
+                    Route to Non-Emergency
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -24,16 +24,23 @@ export function useSignalOS(): SignalOSState {
   const connect = useCallback((): void => {
     if (!mountedRef.current) return;
 
-    const base =
-      process.env.NEXT_PUBLIC_BACKEND_URL ?? "ws://localhost:3001";
-    const url = `${base}/dashboard`;
+    // Prefer NEXT_PUBLIC_BACKEND_WS_URL (full wss://…/dashboard) — matches Vercel docs we used.
+    // Legacy: NEXT_PUBLIC_BACKEND_URL base only, we append /dashboard.
+    const url =
+      process.env.NEXT_PUBLIC_BACKEND_WS_URL?.trim() ||
+      `${(process.env.NEXT_PUBLIC_BACKEND_URL ?? "ws://localhost:3001").replace(
+        /\/$/,
+        ""
+      )}/dashboard`;
 
-    console.log("[Socket] Connecting →", url);
+    console.log("[SignalOS] WebSocket connecting →", url);
     const ws = new WebSocket(url);
     socketRef.current = ws;
 
     ws.onopen = (): void => {
-      console.log("[Socket] Connected to SignalOS backend");
+      console.log(
+        "[SignalOS] WebSocket OPEN — dashboard linked to backend. Waiting for STATE_UPDATE / ALERT messages."
+      );
       setConnected(true);
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
@@ -47,9 +54,19 @@ export function useSignalOS(): SignalOSState {
 
         if (message.type === "STATE_UPDATE") {
           const state = message.payload as CallState;
+          console.log("[SignalOS] STATE_UPDATE", {
+            callId: state.callId,
+            status: state.status,
+            transcriptLen: state.transcript?.length ?? 0,
+          });
           setCalls((prev) => ({ ...prev, [state.callId]: state }));
         } else if (message.type === "ALERT") {
           const alert = message.payload as AlertPayload;
+          console.log("[SignalOS] ALERT", {
+            callId: alert.callId,
+            type: alert.anomalyType,
+            confidence: alert.confidence,
+          });
           setCalls((prev) => ({
             ...prev,
             [alert.callId]: {
@@ -65,13 +82,13 @@ export function useSignalOS(): SignalOSState {
           setActiveAlert(alert);
         }
       } catch (err) {
-        console.error("[Socket] Failed to parse message:", err);
+        console.error("[SignalOS] Failed to parse WebSocket message:", err);
       }
     };
 
     ws.onclose = (): void => {
       console.log(
-        `[Socket] Disconnected — reconnecting in ${RECONNECT_DELAY_MS}ms`
+        `[SignalOS] WebSocket closed — reconnecting in ${RECONNECT_DELAY_MS}ms`
       );
       setConnected(false);
       if (mountedRef.current) {
@@ -80,7 +97,7 @@ export function useSignalOS(): SignalOSState {
     };
 
     ws.onerror = (): void => {
-      console.error("[Socket] Connection error");
+      console.error("[SignalOS] WebSocket error — check URL and Railway backend");
     };
   }, []);
 
